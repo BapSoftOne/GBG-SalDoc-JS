@@ -1,0 +1,2562 @@
+//===================//
+//=== Prototypes ===//
+Date.prototype.SqlDate = function() {
+    var mm = this.getMonth() + 1;
+    var dd = this.getDate();
+    var hh = this.getHours();
+    var mi = this.getMinutes();
+    var ss = this.getSeconds();
+    return [this.getFullYear(), (mm<10)?"0":"", mm, (dd<10)?"0":"", dd].join("");
+};
+
+Date.prototype.ShowDate = function() {
+    var mm = this.getMonth() + 1;
+    var dd = this.getDate();
+    return [(dd<10)?"0":"", dd, "/", (mm<10)?"0":"", mm, "/", this.getFullYear()].join("");
+};
+
+Date.prototype.ShowDateTime = function() {
+    var mm = this.getMonth() + 1;
+    var dd = this.getDate();
+    var hh = this.getHours();
+    var mi = this.getMinutes();
+    var ss = this.getSeconds();
+    return [(dd<10)?"0":"", dd, "/", (mm<10)?"0":"", mm, "/", this.getFullYear(), (hh< 10)?" 0":" ", hh, ":", (mi<10)?"0":"", mi, ":", (ss<10)?"0":"", ss].join("");
+};
+
+//===================//
+//=== Global Vars ===//
+var vDiscRule1 = 201;
+var vDiscRule2 = 202;
+var vDiscRule3 = 203;
+var vCustCateg = 3099;	//TRDCATEGORY
+var vInvldChng = 0;
+var vControler = 0;
+var vRecalculate = 0;
+var vFullyTransf = 0;
+var Colors = { WHITE: [16777215], BLUE: [6697728], RED: [255], GREEN: [32768], YELLOW: [52428], BROWN: [19609], GRAY: [12632256], BlueLight: [16776960] };
+//OLD LINE var vExcludedUsers = {118:1, 137:1, 156:1, 126:1};
+//NEW LINE
+var vExcludedUsers = {118:1, 126:1, 145:1, 156:1, 158:1, 194:1, 195:1, 270:1};
+//118- Καυκαλάς Βασίλειος
+//126- Πάσχου Ειρήνη                  
+//145- Τζίβας Ιωάννης                  
+//156- Κυματή Μαρία
+//158- Πάνου Δάφνη
+//194- Κόκκορης Μιχάλης
+//195- Τρικαλιώτης Θοδωρής
+//270- Γεωργιάδης Πέτρος
+
+
+//===============//
+//=== Buttons ===//
+function EXECCOMMAND(cmd) {
+    switch (cmd) {
+        case 2018140231: //Αποστολή Proforma
+            if(SALDOC.FINDOC<0){
+            //	X.WARNING('Πρέπει να καταχωρηθεί πρώτα το παρταστατικό!');
+                        X.WARNING((X.SYS.USERLANG == "EL" ? "Πρέπει να καταχωρηθεί πρώτα το παρταστατικό!" :
+                            (X.SYS.USERLANG == "EN" ? "The document must be registered first!" :
+                                (X.SYS.USERLANG == "SR" ? "Dokument mora prvo biti registrovan!" : "No Supported Language"))));
+                break;
+            }
+            var vProforma = (SALDOC.ISNULL("TRDR") == 0 ? X.SQL("SELECT ISNULL(TE.cccProforma,0) FROM TRDEXTRA AS TE WHERE TE.TRDR = "+SALDOC.TRDR, null) : 0);
+            if (vProforma == 1) {
+                X.PRINTFORM(10006, "E-Mail", "");
+            }
+            else {
+                //X.WARNING("Δεν μπορείτε να στείλετε προφόρμα στον πελάτη!");
+                    X.WARNING((X.SYS.USERLANG == "EL" ? "Δεν μπορείτε να στείλετε προφόρμα στον πελάτη!" :
+                            (X.SYS.USERLANG == "EN" ? "You can't send a proforma to the customer!" :
+                                (X.SYS.USERLANG == "SR" ? "Ne možete poslati profakturu kupcu!" : "No Supported Language"))));
+            }
+            break;
+        case 2018091100:	//OpenForm
+            if (SALDOC.ISNULL("TRDR") == 1)
+                X.WARNING("Please select customer");
+            else
+                X.OPENSUBFORM("CustomForm01");
+            break;
+        case 2018091101:	//Search
+            cccSrchFltrs.Varchar02 = null;
+            cccSrchFltrs.Varchar03 = null;
+            cccSrchFltrs.Varchar22 = null;
+            cccSrchFltrs.Varchar33 = null;
+            RunItemSearch(1);
+            break;
+        case 2018091102:	//Gen Code
+            X.EXEC("XCMD:cccIGenCodes[AUTOLOCATE="+cccSrchRslts1.Integer01+"]");
+            break;
+        case 2018091103:	//Item Fotos
+            //X.EXEC("XCMD:cccItemFits[AUTOLOCATE="+cccSrchRslts1.Integer01+"]");
+            var ObjFotos = X.CreateObjForm("cccItemFits");
+            ObjFotos.DBLocate(cccSrchRslts1.Integer01);
+            var TblFin = ObjFotos.FindTable("cccSimilarItems");
+            TblFin.LOCATE("UTBL01", Utbl01ToAdd());
+            ObjFotos.SHOWOBJFORM();
+            break;
+        case 2018091104:	//Supplier Code
+            X.EXEC("XCMD:cccSupCodes[AUTOLOCATE="+cccSrchRslts1.Integer01+"]");
+            break;
+        case 2018091105:	//Reserved
+            X.QUICKVIEW("ITEM","Ανάλυση Δεσμευμένων Ειδών","cccSrchRslts1.Integer01");
+            break;
+        case 2018092801:	//Filter
+            X.OPENSUBFORM("CustomForm02");
+            break;
+        case 2018092601:
+            if ((cccSrchRslts1.Decimal01 > 0) || (SALDOC.COMPANY == 1002) || (SALDOC.FPRMS == 7003)) {
+                X.OPENSUBFORM("CustomForm03");
+            }
+            else {
+                //X.WARNING("Δεν υπάρχει διαθέσιμο υπόλοιπο!");
+                    X.WARNING((X.SYS.USERLANG == "EL" ? "Δεν υπάρχει διαθέσιμο υπόλοιπο!" :
+                            (X.SYS.USERLANG == "EN" ? "No balance available!" :
+                                (X.SYS.USERLANG == "SR" ? "Saldo nije dostupan!" : "No Supported Language"))));
+            
+                    CreateLostSales(1005,cccSrchRslts1.Integer02,1,cccSrchRslts1.Decimal04,1);
+            }
+            break;
+        case 2018092602:
+            if ((cccSrchRslts1.Decimal01 > 0) || (SALDOC.COMPANY == 1002) || (SALDOC.FPRMS == 7003)) {
+                X.OPENSUBFORM("CustomForm03");
+            }
+            else {
+                //X.WARNING("Δεν υπάρχει διαθέσιμο υπόλοιπο!");
+                    X.WARNING((X.SYS.USERLANG == "EL" ? "Δεν υπάρχει διαθέσιμο υπόλοιπο!" :
+                            (X.SYS.USERLANG == "EN" ? "No balance available!" :
+                                (X.SYS.USERLANG == "SR" ? "Saldo nije dostupan!" : "No Supported Language"))));
+            }
+            break;
+        case 201811201:
+            ChooseConversion();
+            break;
+        case 201812031:
+            X.EXEC("XCMD:CLIENTIMPORT,SCRIPTNAME:UpdFinStatesForMantis");
+            break;
+        case 201812032:
+            X.EXEC("XCMD:CLIENTIMPORT,SCRIPTNAME:UpdFinStatesForInvoice");
+            break;
+        case 201812033:
+            X.EXEC("XCMD:CLIENTIMPORT,SCRIPTNAME:UpdFinStatesForExec");
+            break;
+        case 2019062401:
+            ConvertLines();
+            break;
+        case 201907121:
+            CreateLostSales(1005,ITELINES.MTRL,ITELINES.QTY1,ITELINES.LINEVAL,0);
+            break;
+        case 2019071601:
+            CreateLostSales(1005,cccSrchRslts1.Integer02,1,cccSrchRslts1.Decimal04,0);
+            break;
+        case 2019091901:
+            if (SALDOC.ISNULL("TRDR") == 1 ) {
+                X.WARNING("Please select customer");
+            }
+            else {		
+                X.FOCUSFIELD("SALDOC.COMMENTS");
+                X.OPENSUBFORM("CustomForm01");
+            }
+            break;
+        case 2019111501:
+            if (SALDOC.FINDOC > 0) {
+                X.WARNING((X.SYS.USERLANG == "EL" ? "Δεν μπορείτε να αλλάξετε σειρά, το παραστατικό είναι καταχωρημένο!" :
+                        (X.SYS.USERLANG == "EN" ? "You can't change series, the document is saved!" :
+                        (X.SYS.USERLANG == "SR" ? "Не можете мењати серију, документи су сачувани!" : "No Supported Language"))));
+            }
+            else {
+                OrdersOffers();
+            }
+            break;
+        case -2:
+            if (SALDOC.cccNoAlert != 1) {
+                ReCalculatePrcRule();
+            }
+            break;
+    }
+}
+
+//=====================//
+//=== Object Events ===//
+function ON_CREATE() {
+//debugger;
+    ChangeContextMenus(); //Change context menu items (Browser and Items Grid)
+    ChangeItelinesGridMenus();
+    LockFindocFields();
+    //ChangeRelJob();
+}
+
+function ON_SALDOC_NEW() {
+    ShowHide(); //========== Προβολή Πελάτης Λιανικής Σερβίας ==========//
+
+    cccSrchFltrs.SmallInt01 = 4;
+    cccSrchFltrs.SmallInt02 = 1;
+    cccSrchFltrs.SmallInt03 = 1;
+    cccSrchFltrs.SmallInt04 = SALDOC.BRANCH;
+    cccSrchFltrs.Integer01 = 0;
+
+    X.SETFIELDEDITOR("SALDOC.PAYMENT", "@PAYT");
+    SALDOC.SETREADONLY("PAYMENT", "FALSE");
+}
+
+function ON_INSERT() {
+    vControler = 0;
+    vRecalculate = 0;
+    SALDOC.cccInsForm = X.FORM;
+    SALDOC.cccInsWrkstn = X.SYS.WRKSTN;
+    SALDOC.cccMassEmail=0;
+    //X.FOCUSFIELD("SALDOC.X_CODE");
+    //LockRecord(0); //Unlock fields on insert
+    VisiblecccDisc1Prc();
+    SetColors();
+}
+
+function ON_LOCATE() {
+    CleanTableLines();
+    vControler = 0;
+    vRecalculate = 0;
+    //CreateDocCode(1);
+    vInvldChng = 0;
+    X.SETPROPERTY("PANEL","QuickView2","VISIBLE","TRUE");
+    X.SETPROPERTY("PANEL","QuickView1","VISIBLE","FALSE"); //Άλλαξε η απαίτηση και θέλουν πάντα να φαίνεται η προεξόφληση.
+    //if(SALDOC.TFPRMS==201){
+        //X.SETPROPERTY("PANEL","QuickView2","VISIBLE","TRUE"); //Άλλαξε η απαίτηση και θέλουν πάντα να φαίνεται η προεξόφληση.
+        //X.SETPROPERTY("PANEL","QuickView1","VISIBLE","FALSE");
+        //if(SALDOC.FULLYTRANSF==1 || SALDOC.FULLYTRANSF==3){
+        //if(SALDOC.FINSTATES==6 && X.SYS.GROUPS!=2 && X.SYS.GROUPS!=14 && X.SYS.GROUPS!=16 && X.SYS.GROUPS!=12 && X.SYS.GROUPS!=18 && X.SYS.GROUPS!=2 && X.SYS.GROUPS!=8){
+            //X.SetProperty("EDITOPTIONS", "READONLY=TRUE");
+            //LockRecord(1); //Lock fields on locate
+        //}
+    //}
+    //else{
+        //X.SETPROPERTY("PANEL","QuickView2","VISIBLE","FALSE"); //Άλλαξε η απαίτηση και θέλουν πάντα να φαίνεται η προεξόφληση.
+        //X.SETPROPERTY("PANEL","QuickView1","VISIBLE","TRUE");
+    //}
+    //AbjustSeriesEditor()
+    var vSQL = "SELECT ISNULL(CCCISBLOCKED,0) AS ISBLOCKED FROM TRDEXTRA WHERE TRDR = "+SALDOC.TRDR;
+    if (X.SQL(vSQL, null) == 1) {
+        SALDOC.SETREADONLY("PAYMENT", "TRUE");
+    }
+    else {
+        SALDOC.SETREADONLY("PAYMENT", "FALSE");
+    }
+
+    ShowHide(); //========== Προβολή Πελάτης Λιανικής Σερβίας ==========//
+
+    //ReadOnlyFields(false);
+    cccSrchFltrs.SmallInt01 = 4;
+    cccSrchFltrs.SmallInt02 = 1;
+    cccSrchFltrs.SmallInt03 = 1;
+    cccSrchFltrs.SmallInt04 = SALDOC.BRANCH;
+    cccSrchFltrs.Integer01 = 0;
+    X.SETPROPERTY("MERGECHANGELOG", "True");
+    //AdjustPaymentEditor(false);
+    PaymentEditorFilter();
+    //X.FOCUSFIELD("SALDOC.TRDR");
+    VisiblecccDisc1Prc();
+    SetColors();
+}
+
+function ON_POST() {
+    if(SALDOC.TFPRMS == 201 && SALDOC.FINSTATES == 6 && X.SYS.GROUPS!=2 && X.SYS.GROUPS!=201 && X.SYS.GROUPS != 14 && X.SYS.GROUPS!=16 && X.SYS.GROUPS!=12 && X.SYS.GROUPS!=18 && X.SYS.GROUPS!=6 && X.SYS.GROUPS!=8){
+        X.CANCELEDITS;
+        X.WARNING("Δεν μπορείτε να μεταβάλλετε το παραστατικό!");
+    }
+    else {
+        FixRoutingCarrier();
+        //CreateDocCode(0);
+        RetailMaxDocDisc();
+        CustomSumItelines();
+    }
+    if ((SALDOC.TFPRMS == 151) && (X.FILTERSUM("ITELINES.MTRL","FINDOCS > 0") > 0) && (SALDOC.FINDOC < 0)) {
+        CheckIfConved();
+    }
+    CleanTableLines();
+    CalcWeight2();
+}
+
+function ON_CANCEL() {
+    vControler = 0;
+    vRecalculate = 0;
+    vInvldChng = 0;
+//ReadOnlyFields(true);
+}
+
+function ON_RESTOREEVENTS() {
+    if (SALDOC.cccNoAlert != 1) {
+        SrbRetCus(1); //========== Πελάτης Λιανικής Σερβίας ==========//
+        ShowHide(); //========== Προβολή Πελάτης Λιανικής Σερβίας ==========//
+//debugger;
+        //AdjustPaymentEditor(true);
+        PaymentEditorFilter();
+        if (SALDOC.TFPRMS == 151) {
+            AllQty1To1();
+        }
+        CalcWeight2();
+    }
+}
+
+//====================//
+//=== SubForm Events ===//
+function ON_CustomForm01_SHOW() {
+    if (ITELINES.ISNULL("X_CODE") == 0) {
+        cccSrchFltrs.SmallInt01 = 1;
+        cccSrchFltrs.SmallInt02 = 3;
+        cccSrchFltrs.Varchar01 = ITELINES.X_CODE;
+        cccSrchFltrs.SmallInt03 = 1;
+        cccSrchFltrs.SmallInt04 = SALDOC.BRANCH;
+        cccSrchFltrs.Integer01 = 0;
+        cccSrchFltrs.Varchar02 = null;
+        cccSrchFltrs.Varchar03 = null;
+        cccSrchFltrs.Varchar22 = null;
+        cccSrchFltrs.Varchar33 = null;
+        RunItemSearch(1);
+    }
+    else if (ITELINES.ISNULL("cccSimItemSrch") == 0) {
+        cccSrchFltrs.SmallInt01 = 2;
+        cccSrchFltrs.SmallInt02 = 3;
+        cccSrchFltrs.Varchar01 = ITELINES.cccSimItemSrch;
+        cccSrchFltrs.SmallInt03 = 1;
+        cccSrchFltrs.SmallInt04 = SALDOC.BRANCH;
+        cccSrchFltrs.Integer01 = 0;
+        cccSrchFltrs.Varchar02 = null;
+        cccSrchFltrs.Varchar03 = null;
+        cccSrchFltrs.Varchar22 = null;
+        cccSrchFltrs.Varchar33 = null;
+        RunItemSearch(1);
+    }
+    //else {
+    //	CleanTableLines();
+    //	cccSrchFltrs.SmallInt01 = 4;
+    //	cccSrchFltrs.SmallInt02 = 1;
+    //	cccSrchFltrs.Varchar01 = null;
+    //	cccSrchFltrs.SmallInt03 = 1;
+    //	cccSrchFltrs.SmallInt04 = SALDOC.BRANCH;
+    //	cccSrchFltrs.Integer01 = 0;
+    //	cccSrchFltrs.Varchar02 = null;
+    //	cccSrchFltrs.Varchar03 = null;
+    //	cccSrchFltrs.Varchar22 = null;
+    //	cccSrchFltrs.Varchar33 = null;
+    //}
+}
+
+//function ON_CustomForm01_ACTIVATE() {
+//	if (cccSrchFltrs.ISNULL("Varchar01") == 0) {
+//		RunItemSearch(1);
+//	}
+//}
+
+function ON_CustomForm01_ACCEPT() {
+//	ITELINES.DISABLECONTROLS;
+    X.OPENSUBFORM("CustomForm03");
+//	ITELINES.ENABLECONTROLS;
+}
+
+function ON_CustomForm02_SHOW() {
+    X.SETFIELDEDITOR('cccSrchFltrs.Varchar03', '#ITEGROUP');
+    X.SETFIELDEDITOR('cccSrchFltrs.Varchar02', '#UTBL01(F[SODTYPE=51])');
+    
+    cccSrchFltrs.Varchar02 = null;
+    cccSrchFltrs.Varchar03 = null;
+    cccSrchFltrs.Varchar22 = null;
+    cccSrchFltrs.Varchar33 = null;
+    
+    cccSrchFltrs.Integer03 = 1;
+    X.FOCUSFIELD('cccSrchFltrs.Integer03');
+}
+
+function ON_CustomForm02_ACCEPT() {
+    RunItemSearch(2);
+}
+
+function ON_CustomForm03_SHOW() {
+    cccSrchFltrs.Float01 = 1;
+}
+
+function ON_CustomForm03_ACCEPT() {
+    AddItemToLines();
+}
+
+//======================//
+//=== Dataset Events ===//
+function ON_ITELINES_NEW() {
+    vInvldChng = 0;
+}
+
+function ON_ITELINES_POST() {
+    InsLog("ON_ITELINES_POST",SALDOC.COMPANY,SALDOC.SERIES,ITELINES.MTRL,SALDOC.TRDR,SALDOC.TRNDATE,ITELINES.cccSimItemSrch,vControler,"ON_ITELINES_POST",0,X.SYS.USER,SALDOC.VARCHAR01,ITELINES.PRICE,ITELINES.DISC1PRC,null,GetNewID(),ITELINES.MTRLINES);
+    if (SALDOC.cccNoAlert != 1) {
+        if (vInvldChng == 1) {
+            //X.EXCEPTION("Δεν μπορείτε να αλλάξετε αξίες στη γραμμή!");
+                X.EXCEPTION((X.SYS.USERLANG == "EL" ? "Δεν μπορείτε να αλλάξετε αξίες στη γραμμή!" :
+                                (X.SYS.USERLANG == "EN" ? "You can't change the line values!" :
+                                    (X.SYS.USERLANG == "SR" ? "Ne možete menjati vrednost linije!" : "No Supported Language"))));
+        }
+        vInvldChng = 0;
+        ITELINES.CCCLEFTRIGHT = X.SQL("SELECT TOP 1 MP.NAME1 \
+                                        FROM MTRL AS M \
+                                        INNER JOIN cccMtrlPosition AS MP \
+                                        ON MP.cccMtrlPosition = M.cccMtrlPosition \
+                                        WHERE M.MTRL = "+ITELINES.MTRL, null);
+        RetailMaxDiscByItemGroup();
+        SALDOC.CCCWEIGHT = null;
+        SALDOC.CCCVOLUME = null;
+        SALDOC.cccNetWeig= null;
+        CalcWeight2Line();
+    }
+}
+
+function ON_ITELINES_BEFOREDELETE(){
+    if(SALDOC.TFPRMS==201){
+        if(SALDOC.FINSTATES==6 && X.SYS.GROUPS!=2 && X.SYS.GROUPS!=201 && X.SYS.GROUPS != 14 && X.SYS.GROUPS!=16 && X.SYS.GROUPS!=12 && X.SYS.GROUPS!=18 && X.SYS.GROUPS!=6 && X.SYS.GROUPS!=8){
+        //	X.EXCEPTION('\nΔεν μπορείτε να διαγράψετε την εγγραφή!');
+                X.EXCEPTION((X.SYS.USERLANG == "EL" ? "\nΔεν μπορείτε να διαγράψετε την εγγραφή!" :
+                            (X.SYS.USERLANG == "EN" ? "\nYou can't delete a record!" :
+                                (X.SYS.USERLANG == "SR" ? "\nNe možete izbrisati zapis!" : "No Supported Language"))));
+        }
+    }
+}
+
+function ON_ITELINES_AFTERPOST() {
+    if (SALDOC.cccNoAlert != 1) {
+        if (vControler == 0) {
+            CalcWeight2();
+        }
+    }
+//Χρησιμοποιήσαμε την PROCESSMESSAGES  διότι δεν αλλαζε γραμή στο Edit. Μόνο όταν δεν επανα-υπολογίζονται τιμές και εκπτώσεις
+    if (vRecalculate == 0) {
+        X.PROCESSMESSAGES;
+    }
+}
+
+function ON_ITELINES_AFTERDELETE() {
+    vInvldChng = 0;
+    
+    if (SALDOC.cccNoAlert != 1) {
+        if (vControler == 0) {
+            CalcWeight2();
+        }
+    }
+}
+
+//====================//
+//=== Field Events ===//
+function ON_SALDOC_BRANCH() {
+    cccSrchFltrs.SmallInt04 = SALDOC.BRANCH;
+}
+
+function ON_SALDOC_SERIES() {
+    //var data2 = CCCTRDEXTRA.SINT2
+    if (SALDOC.TFPRMS == 201) {
+        SALDOC.FINSTATES = (CCCTRDEXTRA.SINT3 > 0 ? CCCTRDEXTRA.SINT3 : 2);
+    }
+    if(CCCTRDEXTRA.SINT2==1){
+        X.SETPROPERTY("FIELD","ITELINES.DISC1PRC","VISIBLE","FALSE");
+    }
+    else{
+        X.SETPROPERTY("FIELD","ITELINES.DISC1PRC","VISIBLE","TRUE");
+    }
+
+    //Άλλαξε η απαίτηση και θέλουν πάντα να φαίνεται η προεξόφληση.
+    X.SETPROPERTY("PANEL","QuickView2","VISIBLE","TRUE");
+    X.SETPROPERTY("PANEL","QuickView1","VISIBLE","FALSE");
+    //if(SALDOC.TFPRMS==201){
+    //	X.SETPROPERTY("PANEL","QuickView2","VISIBLE","TRUE");
+    //	X.SETPROPERTY("PANEL","QuickView1","VISIBLE","FALSE");
+    //}
+    //else{
+    //	X.SETPROPERTY("PANEL","QuickView2","VISIBLE","FALSE");
+    //	X.SETPROPERTY("PANEL","QuickView1","VISIBLE","TRUE");
+    //}
+
+    //CreateDocCode(0);
+    ReCalculatePrcRule();
+
+    SrbRetCus(); //========== Πελάτης Λιανικής Σερβίας ==========//
+    ShowHide(); //========== Προβολή Πελάτης Λιανικής Σερβίας ==========//
+}
+
+function ON_SALDOC_TRDR_VALIDATE() {
+    if (SALDOC.FINDOC > 0) {
+        X.EXCEPTION((X.SYS.USERLANG == "EL" ? "Δεν μπορείτε να αλλάξετε πελάτη, το παραστατικό είναι καταχωρημένο!" :
+                    (X.SYS.USERLANG == "EN" ? "You cannot change Customer, the document has been saved!" :
+                    (X.SYS.USERLANG == "SR" ? "Не можете да промените клијента, документ је регистрован" : "No Supported Language"))));
+    }
+//Αν αλλάξει ο πελάτης να διαγράψει την αναζήτηση που μπορεί να είχε εκτελεστεί
+    CleanTableLines();
+}
+
+function ON_SALDOC_TRDR() {
+    FINDOC.DISABLECONTROLS;
+    MTRDOC.DISABLECONTROLS;
+    try {
+        if(SALDOC.TRDR>0){
+            if(SALDOC.COMPANY != 1002){
+                SALDOC.SETREADONLY("PAYMENT", "FALSE");
+                if ((SALDOC.ISNULL("SERIES") == 1) || (SALDOC.TFPRMS in {201:1, 202:1})) {
+                    AbjustSeriesEditor();
+                }
+
+                var sql = "SELECT TRDBRANCH FROM TRDBRANCH WHERE TRDR = " + SALDOC.TRDR;
+                var ds = X.GETSQLDATASET(sql, null);
+                if(ds.RECORDCOUNT>0){
+                    if(ds.RECORDCOUNT==1){
+                        SALDOC.TRDBRANCH = ds.TRDBRANCH;
+                    }
+                    else{	//Εχει πολλά υποκαταστήματα
+                    //	X.WARNING("Παρακαλώ επιλέξτε υποκατάστημα πελάτη!");
+                            X.WARNING((X.SYS.USERLANG == "EL" ? "Παρακαλώ επιλέξτε υποκατάστημα πελάτη!" :
+                                    (X.SYS.USERLANG == "EN" ? "Please select the customer's branch!" :
+                                        (X.SYS.USERLANG == "SR" ? "Molimo odaberite poslovnicu kupca" : "No Supported Language"))));
+                    }
+                }
+                else {
+                    GetRoutingCarrier();
+                    //AdjustPaymentEditor(true);
+                    PaymentEditorValue();
+                    CalcWeight2();
+                    //ReadOnlyFields();
+                }
+            }
+            else if (SALDOC.COMPANY == 1002) //========== Υποκατάστημα Πελάτη για ΣΕΡΒΙΑ ==========//
+            {
+                SALDOC.TRDBRANCH = null;
+
+                srbbr = X.GETSQLDATASET("SELECT TRDBRANCH FROM TRDBRANCH WHERE TRDR = "+SALDOC.TRDR+" and code='000'","");
+
+                if(srbbr.RECORDCOUNT == 1)
+                    SALDOC.TRDBRANCH = srbbr.TRDBRANCH;
+            }
+            ReCalculatePrcRule();
+        }
+        else {
+            SALDOC.TRDBRANCH = null;
+            SALDOC.SERIES = null;
+        }
+        //ReadOnlyFields(false);
+        VisiblecccDisc1Prc();
+        ClearcccDisc1Prc();
+    }
+    finally {
+        FINDOC.ENABLECONTROLS;
+        MTRDOC.ENABLECONTROLS;	
+    }
+}
+
+function ON_SALDOC_TRDBRANCH() {
+    if (SALDOC.TRDBRANCH > 0) {
+        //if (CCCTRDEXTRA.SINT1 == 1) {
+        //	SALDOC.SETREADONLY("PAYMENT", "FALSE");
+        //	SALDOC.PAYMENT=30;
+        ////	SALDOC.SETREADONLY("PAYMENT", "TRUE");
+        //}
+        GetRoutingCarrier();
+        //ReadOnlyFields(false);
+        //AdjustPaymentEditor(true);
+        PaymentEditorValue();
+        CalcWeight2();
+    }
+}
+
+function ON_ITELINES_MTRL() {
+    if (SALDOC.cccNoAlert != 1) {
+        if ( (ITELINES.ISNULL("MTRL") == 0) && (SALDOC.ISNULL("TRDR") == 1 )) {
+            X.WARNING("Please select customer");
+            ITELINES.MTRL = null;
+            return;
+        }
+
+        if ((ITELINES.ISNULL("MTRL") == 0) && (vControler == 0)) {
+            try {
+                vControler = 1;
+                var vExcluded = "," + X.COMPANY.LOOKUP("COMPANY", SALDOC.COMPANY, "cccPrcRExclude") + ",";
+                var vFprms = "," + SALDOC.FPRMS + ",";
+                if (!(vExcluded.indexOf(vFprms)>-1)) {
+                    var dsPrcDt = GetItemPrice(ITELINES.MTRL);
+                    if (dsPrcDt.length>0) {
+                        ITELINES.PRICE = dsPrcDt[0];
+                        ITELINES.DISC1PRC = dsPrcDt[1];
+                        InsLog("ON_ITELINES_MTRL",SALDOC.COMPANY,SALDOC.SERIES,ITELINES.MTRL,SALDOC.TRDR,SALDOC.TRNDATE,ITELINES.cccSimItemSrch,vControler,"Assigning Price",0,X.SYS.USER,SALDOC.VARCHAR01,ITELINES.PRICE,ITELINES.DISC1PRC,null,GetNewID(),ITELINES.MTRLINES);
+                    }
+                }
+
+                if (ITELINES.ISNULL("cccSimItemSrch") == 1) {
+                    ITELINES.cccSimItemSrch = ITELINES.X_CODE;
+                }
+                var vSQL = " SELECT SI.UTBL01 "
+                        +" 	,SI.SIENGNAME "
+                        +" FROM cccSISearch AS SI "
+                        +" WHERE SI.MTRL = "+ITELINES.MTRL
+                        +" AND SI.SICODE = '"+ITELINES.cccSimItemSrch+"'";
+                var dsExtra = X.GETSQLDATASET(vSQL, null);
+                //var vUtbl01 = X.SQL("SELECT ME.UTBL01 FROM "+((ITELINES.ISNULL("cccSISearch") == 0) ? "cccSISearch" : "MTREXTRA")+" AS ME WHERE ME."+((ITELINES.ISNULL("cccSISearch") == 0) ? "cccSISearch="+ITELINES.cccSISearch : "MTRL="+ITELINES.MTRL), null);
+                if (dsExtra.RECORDCOUNT > 0) {
+                    ITELINES.CCCUTBL01 = dsExtra.UTBL01;
+                    ITELINES.cccGenCodeEng = dsExtra.SIENGNAME;
+                }
+                
+            }
+            catch (e) {
+                //X.WARNING("Error: "+e.description);
+                InsLog("ON_ITELINES_MTRL",SALDOC.COMPANY,SALDOC.SERIES,ITELINES.MTRL,SALDOC.TRDR,SALDOC.TRNDATE,ITELINES.cccSimItemSrch,vControler,e.message,1,X.SYS.USER,SALDOC.VARCHAR01,ITELINES.PRICE,ITELINES.DISC1PRC,null,GetNewID(),ITELINES.MTRLINES);
+                if( SALDOC.cccNoAlert != 1 && SALDOC.ISNULL('VARCHAR01')==1 ){
+                    X.WARNING("Δεν υπολογίστηκε η τιμολ. πολιτική του είδους \n"+( ITELINES.ISNULL('cccSimItemSrch') == 0 ? ITELINES.cccSimItemSrch : ITELINES.X_CODE ) +":"+ITELINES.X_NAME+"\nκαι θα διαγραφεί η γραμμή!\nΘα χρειαστεί να την ξαναπεράσετε.");
+                    ITELINES.DELETE;
+                }
+            }
+            finally {
+                vControler = 0;
+            }
+        }
+        else if ((vControler == 0)) {
+            ITELINES.CCCUTBL01 = null;
+        }
+
+        GetSrbPrice(); //========== Nivelacija Σερβίας ==========//
+    }
+    /*Pelates Lianikis*/
+    if ((SALDOC.X_TRDCATEGORY == vCustCateg) && (SALDOC.ISNULL("cccDisc1Prc") == 0)) {
+        FindItelinesDsMTRGROUP(AllLines=0);
+    }
+}
+
+function ON_SALDOC_cccDisc1Prc(){
+/*Pelates Lianikis*/
+    if(SALDOC.X_TRDCATEGORY == vCustCateg){
+        if(ITELINES.STATE==2 || ITELINES.STATE==3){ //2=dsEdit , 3=dsInsert
+            ITELINES.POST;
+        }
+        FindItelinesDsMTRGROUP(AllLines=1);
+    }
+}
+
+//function ON_ITELINES_cccSISearch() {
+//	if ((ITELINES.cccSISearch > 0)) {// && (vControler == 0)) {
+//		var vSQL = " SELECT SCT.SOVALUE "
+//				+" FROM SOCTRANSL AS SCT "
+//				+" WHERE SCT.TABLENM = 'CCCSIMILARITEMS' "
+//				+" AND SCT.FIELDID = 1 "
+//				+" AND SCT.SOLANG = 'EN' "
+//				+" AND SCT.KEY1 = "+ITELINES.cccSISearch;
+//		var vGCEng = X.SQL(vSQL, null);
+//		if (vGCEng) {
+//			ITELINES.cccGenCodeEng = vGCEng;
+//		}
+//		if ((ITELINES.MTRL > 0) && (ITELINES.ISNULL("cccSimItemSrch") == 1)) {
+//			var vSQL = " SELECT SI.CODE "
+//					+" FROM cccSimilarItems AS SI "
+//					+" WHERE SI.MTRL = "+ITELINES.MTRL
+//					+" AND SI.ISACTIVE = 1"
+//					+" AND SI.cccSimilarItems = "+ITELINES.cccSISearch;
+//			var vGCCode = X.SQL(vSQL, null);
+//			if (vGCCode) {
+//				ITELINES.cccSimItemSrch = vGCCode;
+//			}
+//		}
+//		if ((ITELINES.ISNULL("MTRL") == 1)) {
+//			var vSQL = " SELECT SI.MTRL "
+//					+" FROM cccSimilarItems AS SI "
+//					+" WHERE SI.MTRL = "+ITELINES.MTRL
+//					+" AND SI.ISACTIVE = 1"
+//					+" AND SI.cccSimilarItems = "+ITELINES.cccSISearch;
+//			var vGCItem = X.SQL(vSQL, null);
+//			if (vGCItem) {
+//				ITELINES.MTRL = vGCItem;
+//			}
+//		}
+//	}
+//}
+
+function ON_ITELINES_cccSimItemSrch() {
+    if (SALDOC.cccNoAlert != 1 && SALDOC.ISNULL('VARCHAR01')==1) {
+        if ((ITELINES.ISNULL("cccSimItemSrch") == 0) && (vControler == 0)){
+            var vSQL = "SELECT SI.MTRL "
+                    +"\nFROM "
+                    +"\n	cccSISearch AS SI "
+                    +"\n	JOIN  MTRL AS M ON M.MTRL=SI.MTRL"
+                    +"\n	LEFT JOIN  MTRGROUP AS MPG ON MPG.COMPANY=M.COMPANY AND MPG.SODTYPE=M.SODTYPE AND MPG.MTRGROUP=M.MTRGROUP " 
+                    +"\nWHERE "
+                    +"\n	M.ISACTIVE=1 AND SI.ISACTIVE=1 and  SI.SICODE = '"+ITELINES.cccSimItemSrch+"'"
+                    +"\n	AND (CASE "
+                    +"\n				WHEN ISNULL(MPG.cccWithStock,0)=0 THEN 1 "
+                    +"\n				ELSE (SELECT TOP 1 1 from cccDvMtrlStockPerBranch WHERE MTRL = M.MTRL and LoginCompany="+SALDOC.COMPANY+" and StockCompany="+SALDOC.COMPANY+" /*and StockBranch="+SALDOC.BRANCH+"*/ and QtyShow=1 ) "
+                    +"\n	 	END )>0"
+            var vItem = X.GETSQLDATASET(vSQL, null);
+            if (vItem.RECORDCOUNT==1) {
+                ITELINES.MTRL = vItem.MTRL;
+            }
+            else if(vItem.RECORDCOUNT>1){
+            X.EXEC("XCMD:2019091901");
+            }
+            //else {
+            //	X.WARNING(GetLangString("Δεν βρέθηκε ενεργός όμοιος κωδικός","No Active Similar Code Found!","No Active Similar Code Found!"));
+            //}
+        }
+    }
+}
+
+function ON_ITELINES_QTY1_VALIDATE()
+{
+    if (SALDOC.cccNoAlert != 1) {
+        StockAlert(); //=========== Custom Έλεγχος υπολπόιπου Σερβίας
+    }
+}
+
+function ON_ITELINES_PRICE() {
+    if (SALDOC.cccNoAlert != 1) {
+        LockedLineFields();
+    }
+}
+
+function ON_ITELINES_DISC1PRC() {
+    if (SALDOC.cccNoAlert != 1) {
+        LockedLineFields();
+        //RetailMaxDiscByItemGroup();
+    }
+}
+
+function ON_ITELINES_LINEVAL() {
+    if (SALDOC.cccNoAlert != 1) {
+        LockedLineFields();
+    }
+}
+
+function ON_cccSrchFltrs_SmallInt03() {
+    X.SETPROPERTY("PANEL","CF1Pnl4Grd2","VISIBLE",cccSrchFltrs.SmallInt03);
+}
+
+function ON_cccSrchFltrs_Varchar02() {
+    if (cccSrchFltrs.ISNULL("Varchar02") == 0) {
+        cccSrchFltrs.Varchar22 = GetMemTblCodes(1, "UTBL01", cccSrchFltrs.Varchar02, "CODE");
+        cccSrchFltrs.Varchar01 = null;
+        cccSrchFltrs.SmallInt01 = 3;
+    }
+}
+
+function ON_cccSrchFltrs_Varchar03() {
+    if (cccSrchFltrs.ISNULL("Varchar03") == 0) {
+        cccSrchFltrs.Varchar33 = GetMemTblCodes(2, "MTRGROUP", cccSrchFltrs.Varchar03, "CODE");
+        cccSrchFltrs.Varchar01 = null;
+        cccSrchFltrs.SmallInt01 = 3;
+    }
+}
+
+//=================//
+//=== Functions ===//
+function GetNewID() {
+    return ((SALDOC.FINDOC<0)?X.NEWID:SALDOC.FINDOC);
+}
+
+function ChangeContextMenus() {
+    var vBrowserMenu = X.EXEC("CODE:ModuleIntf.FindXStrings", X.MODULE, "BRMENU");
+    //X.EXEC("CODE:PiLib.TStringsSetItem", vBrowserMenu, 0, "201811201=1;Μετασχηματισμός"); //Alters StringList value
+
+    X.EXEC("CODE:PiLib.TStringsAdd", vBrowserMenu, "2019062401=3;" + GetLangString("Μαζική Τιμολόγηση","Mass Pricing","Ukupna cena"));
+    X.EXEC("CODE:PiLib.TStringsAdd", vBrowserMenu, "-=-");
+    X.EXEC("CODE:PiLib.TStringsAdd", vBrowserMenu, "201812031=1;"  + GetLangString("Για Mantis","For Mantis", "Za Mantis"));
+    X.EXEC("CODE:PiLib.TStringsAdd", vBrowserMenu, "201812032=1;"  + GetLangString("Για τιμολόγιση","To be priced","Za naplaćivanje"));
+    X.EXEC("CODE:PiLib.TStringsAdd", vBrowserMenu, "201812033=1;"  + GetLangString("Προς εκτέλεση","To be executed","Za Izvršavanje"));
+    X.EXEC("CODE:PiLib.TStringsAdd", vBrowserMenu, "-=-");
+    X.EXEC('CODE:PiLib.TStringsAdd', vBrowserMenu, '2019112001=1;' + GetLangString("Send to Order","Send to Order","Poručiti"));
+    X.EXEC('CODE:PiLib.TStringsAdd', vBrowserMenu, '2019112002=3;' + GetLangString("Send to Order","Send to Order","Poručiti"));	
+
+    X.EXEC("CODE:SysRequest.RefreshPopupMenu", X.MODULE, "BRMENU", 1); //Refresh pop up menu
+}
+
+function LockedLineFields() {
+    if ((X.USERS.LOOKUP("USERS", X.SYS.USER, "SOADMINISTRATOR") == 0) && (!(X.SYS.USER in vExcludedUsers)) && (SALDOC.X_TRDCATEGORY != vCustCateg) && (vControler == 0)) {
+        vInvldChng = 1;
+    }
+}
+
+function RetailMaxDiscByItemGroup() {
+    if ((X.USERS.LOOKUP("USERS", X.SYS.USER, "SOADMINISTRATOR") == 0) && (!(X.SYS.USER in vExcludedUsers)) && (vControler == 0)) {
+        if (ITELINES.X_MTRGROUP > 0) {
+            var vGroupMaxDisc = X.MTRGROUP.LOOKUP("COMPANY;SODTYPE;MTRGROUP", X.SYS.MAINCOMPANY,51,ITELINES.X_MTRGROUP, "CCCDISC1PRC");
+            vGroupMaxDisc = (vGroupMaxDisc ? vGroupMaxDisc : 0);
+            if ((SALDOC.X_TRDCATEGORY == vCustCateg) && (ITELINES.DISC1PRC > vGroupMaxDisc)){
+                //X.EXCEPTION("Δεν μπορείτε να δώσετε έκπτωση μεγαλύτερη του "+vGroupMaxDisc+"%!");
+                    X.EXCEPTION((X.SYS.USERLANG == "EL" ? "Δεν μπορείτε να δώσετε έκπτωση μεγαλύτερη του "+vGroupMaxDisc+"%!" :
+                                (X.SYS.USERLANG == "EN" ? "You can't give a discount more than "+vGroupMaxDisc+"%!" :
+                                    (X.SYS.USERLANG == "SR" ? "Ne možete dati veći popust od "+vGroupMaxDisc+"%!" : "No Supported Language"))));
+            }
+        }
+    }
+}
+
+function RetailMaxDocDisc() {
+    if ((SALDOC.X_TRDCATEGORY == vCustCateg) && (SALDOC.DISC1PRC+SALDOC.DISC2PRC > 25)){
+        //X.EXCEPTION("Δεν μπορείτε να δώσετε έκπτωση μεγαλύτερη του 25%!");
+            X.EXCEPTION((X.SYS.USERLANG == "EL" ? "Δεν μπορείτε να δώσετε έκπτωση μεγαλύτερη του 25%!" :
+                            (X.SYS.USERLANG == "EN" ? "You can't give a discount more than 25%!" :
+                                (X.SYS.USERLANG == "SR" ? "Ne možete dati veći popust od  25%!" : "No Supported Language"))));
+    }
+}
+
+/*function ReadOnlyFields() {
+    if ((X.USERS.LOOKUP("USERS", X.SYS.USER, "SOADMINISTRATOR") == 0) && (!(X.SYS.USER in {118:1, 137:1, 156:1, 1000:1})) && (SALDOC.X_TRDCATEGORY != vCustCateg) && (SALDOC.TRDR > 0) && (vControler == 0)) {
+        SALDOC.SETREADONLY("DISC1PRC", "TRUE");
+        SALDOC.SETREADONLY("DISC1VAL", "TRUE");
+        SALDOC.SETREADONLY("DISC2PRC", "TRUE");
+        SALDOC.SETREADONLY("DISC2VAL", "TRUE");
+    }
+    else {
+        SALDOC.SETREADONLY("DISC1PRC", "FALSE");
+        SALDOC.SETREADONLY("DISC1VAL", "FALSE");
+        SALDOC.SETREADONLY("DISC2PRC", "FALSE");
+        SALDOC.SETREADONLY("DISC2VAL", "FALSE");
+    }
+}*/
+
+function LockRecord(vReadOnly){
+    for(var i=0; i<SALDOC.FIELDCOUNT -1; i++){
+        X.SETPROPERTY("FIELD", "SALDOC." + SALDOC.FIELDNAME(i), 'READONLY', vReadOnly);
+    }
+
+    for(var i=0; i<MTRDOC.FIELDCOUNT -1; i++){
+        if (MTRDOC.FIELDNAME(i) == 'SOCARRIER') { //always editable
+            X.SETPROPERTY('FIELD', 'MTRDOC.' + MTRDOC.FIELDNAME(i), 'READONLY', 0);
+        }
+        else{
+            X.SETPROPERTY('FIELD', 'MTRDOC.' + MTRDOC.FIELDNAME(i), 'READONLY', vReadOnly);
+        }
+    }	
+
+    for (i = 0; i <= ITELINES.FIELDCOUNT - 1; i++) {
+        X.SETPROPERTY('FIELD', 'ITELINES.' + ITELINES.FIELDNAME(i), 'READONLY', vReadOnly);
+    }	
+    
+}
+
+function CreateDocCode(vCaller) {
+    if (SALDOC.SERIES > 0) {
+        //if (X.SERIES.LOOKUP("COMPANY;SOSOURCE;SERIES", SALDOC.COMPANY, 1351, SALDOC.SERIES, "FINCODEGENERATE") == 0) {
+        if (SALDOC.TFPRMS == 201) {
+            var vFiscPrd = SALDOC.FISCPRD;
+            var vSalSNum = SALDOC.CMPSERIESNUM;
+            var vSalSLen = X.SALPPRMS.LOOKUP("COMPANY;SODTYPE", SALDOC.COMPANY, 1351, "TRDRCODELEN");
+            var vSalCode = SALDOC.FINCODE;
+            var vDocCode = vFiscPrd + PadField(vSalSNum,"0",vSalSLen-vFiscPrd.length);
+            if (vSalCode != vDocCode) {
+                try {
+                    SALDOC.CMPFINCODE = vDocCode;
+                    SALDOC.FINCODE = vDocCode;
+                    if (vCaller == 1)
+                        X.EXEC("Button:Save");
+                }
+                catch(e) {}
+            }
+        }
+    }
+}
+
+function AddItemToLines() {
+    var vHasError=0;
+    var vQstn = ItemInLines(cccSrchRslts1.Integer02, cccSrchRslts4.SmallInt01);
+    if (vQstn > 0) {
+        try {
+            InsLog("AddItemToLines",SALDOC.COMPANY,SALDOC.SERIES,ITELINES.MTRL,SALDOC.TRDR,SALDOC.TRNDATE,ITELINES.cccSimItemSrch,vControler,"AddItemToLines Before Price",0,X.SYS.USER,SALDOC.VARCHAR01,ITELINES.PRICE,ITELINES.DISC1PRC,null,GetNewID(),ITELINES.MTRLINES);
+            vControler = 1;
+            if ((ITELINES.ISNULL("cccSimItemSrch") == 1) || ((ITELINES.MTRL > 0) && (ITELINES.ISNULL("QTY1") == 0))) {
+                ITELINES.APPEND;
+            }
+            ITELINES.MTRL = cccSrchRslts1.Integer02;
+            ITELINES.CCCUTBL01 = Utbl01ToAdd();
+            ITELINES.cccSimItemSrch = GetSimilarCode(cccSrchRslts1.Integer02,ITELINES.CCCUTBL01);
+            ITELINES.cccGenCodeEng = cccSrchRslts1.VarChar03;
+            //ITELINES.cccSISearch = GetSimilarID(cccSrchRslts1.Integer02,ITELINES.CCCUTBL01);
+            ITELINES.CCCITEMNAME = cccSrchRslts1.Varchar02;
+            ITELINES.QTY1 = cccSrchFltrs.Float01;
+        }
+        catch(e) {
+            InsLog("AddItemToLines",SALDOC.COMPANY,SALDOC.SERIES,ITELINES.MTRL,SALDOC.TRDR,SALDOC.TRNDATE,ITELINES.cccSimItemSrch,vControler,"AddItemToLines Before Price Error "+e.description,1,X.SYS.USER,SALDOC.VARCHAR01,ITELINES.PRICE,ITELINES.DISC1PRC,null,GetNewID(),ITELINES.MTRLINES);
+            vHasError=1;
+            X.WARNING("Error: "+e.description);
+        }
+        finally {
+            vControler = 0;
+        }
+
+        try {
+            vControler = 1;
+            var vExcluded = "," + X.COMPANY.LOOKUP("COMPANY", SALDOC.COMPANY, "cccPrcRExclude") + ",";
+            var vFprms = "," + SALDOC.FPRMS + ",";
+            if (!(vExcluded.indexOf(vFprms)>-1)) {
+                ITELINES.PRICE = cccSrchRslts1.Decimal02;
+                ITELINES.DISC1PRC = cccSrchRslts1.Decimal03;
+            }
+            ITELINES.POST;
+            InsLog("AddItemToLines",SALDOC.COMPANY,SALDOC.SERIES,ITELINES.MTRL,SALDOC.TRDR,SALDOC.TRNDATE,ITELINES.cccSimItemSrch,vControler,"AddItemToLines After Price",0,X.SYS.USER,SALDOC.VARCHAR01,ITELINES.PRICE,ITELINES.DISC1PRC,null,GetNewID(),ITELINES.MTRLINES);
+        }
+        catch(e) {
+            InsLog("AddItemToLines",SALDOC.COMPANY,SALDOC.SERIES,ITELINES.MTRL,SALDOC.TRDR,SALDOC.TRNDATE,ITELINES.cccSimItemSrch,vControler,"AddItemToLines After Price Error "+e.description,1,X.SYS.USER,SALDOC.VARCHAR01,ITELINES.PRICE,ITELINES.DISC1PRC,null,GetNewID(),ITELINES.MTRLINES);
+            vHasError=1;
+            X.EXCEPTION("Error: No Material Price!\n"+e.description);
+        }
+        finally {
+            vControler = 0;
+            if(vHasError == 1){
+                if(cccSrchFltrs.Float01 > cccSrchRslts1.Decimal01){
+                    CreateLostSales(1005,cccSrchRslts1.Integer02,1,cccSrchRslts1.Decimal04,1);
+                    vHasError=0;
+                }
+            }
+        }
+    }
+    //X.CLOSESUBFORM("CustomForm01");
+}
+
+function Utbl01ToAdd() {
+    var vFilterChoice = cccSrchFltrs.SmallInt01;
+    var vFilterUtbl01 = cccSrchFltrs.Varchar02;
+    if (cccSrchRslts4.RECNO == 1) {
+        if (vFilterChoice == 4) {
+            return X.UTBL01.LOOKUP("COMPANY;SODTYPE;CODE", X.SYS.MAINCOMPANY, 51, cccSrchFltrs.Varchar01, "UTBL01");
+        }
+        else if ((vFilterUtbl01.indexOf(",") < 0) && (vFilterUtbl01.length > 0)) {
+            var vSohCode = X.UTBL01.LOOKUP("COMPANY;SODTYPE;UTBL01", X.SYS.MAINCOMPANY, 51, vFilterUtbl01, "SOHCODE");
+            if ((vSohCode.match(/\./g) ? vSohCode.match(/\./g).length : 0) == 2)
+                return cccSrchFltrs.Varchar02;
+            else
+                return cccSrchRslts1.SmallInt01;
+        }
+        else {
+            return cccSrchRslts1.SmallInt01;
+        }
+    }
+    return cccSrchRslts4.SmallInt01;
+}
+
+function GetSimilarCode(vItem,vUtbl01) {
+    var vSQL = "SELECT TOP 1 SI.CODE "
+            +" FROM cccSimilarItems AS SI "
+            +" WHERE SI.MTRL = "+vItem
+            +" AND SI.UTBL01 = "+vUtbl01
+            +" AND SI.ISACTIVE = 1 ";
+    return X.SQL(vSQL, null);
+}
+
+function GetSimilarID(vItem,vUtbl01) {
+    var vSQL = "SELECT TOP 1 SI.cccSimilarItems "
+            +" FROM cccSimilarItems AS SI "
+            +" WHERE SI.MTRL = "+vItem
+            +" AND SI.UTBL01 = "+vUtbl01
+            +" AND SI.ISACTIVE = 1 ";
+    return X.SQL(vSQL, null);
+}
+
+function GetItemPrice(vItem) {
+//debugger;
+    var vPrcDisc = [0,0];
+    try {
+        InsLog("GetItemPrice",SALDOC.COMPANY,SALDOC.SERIES,ITELINES.MTRL,SALDOC.TRDR,SALDOC.TRNDATE,ITELINES.cccSimItemSrch,vControler,"Before GetItemPrice",0,X.SYS.USER,SALDOC.VARCHAR01,ITELINES.PRICE,ITELINES.DISC1PRC,null,GetNewID(),ITELINES.MTRLINES);
+
+        var vDate = new Date(SALDOC.TRNDATE);
+        var vSQL = "SELECT ISNULL((SELECT dbo.fn_GetPriceGroupUtbl01("+SALDOC.COMPANY+", "+vDiscRule1+", '"+vDate.SqlDate()+"', "+(SALDOC.ISNULL("TRDR")==1?'NULL':SALDOC.TRDR)+", M.MTRL)) "
+                +" 			,ISNULL((SELECT dbo.fn_GetPriceGroupUtbl01("+SALDOC.COMPANY+", "+vDiscRule2+", '"+vDate.SqlDate()+"', "+(SALDOC.ISNULL("TRDR")==1?'NULL':SALDOC.TRDR)+", M.MTRL)) "
+                +"				,ISNULL((SELECT (CASE "
+                +"									WHEN "+SALDOC.COMPANY+" != 1002 THEN MCP.PRICER "
+                +"									WHEN (SELECT SF.FieldValue FROM dbo.fnSeperateField ((SELECT F.SOVAL FROM FPRMS AS F WHERE F.COMPANY = "+SALDOC.COMPANY+" AND F.SOSOURCE = 1351 AND F.FPRMS = "+SALDOC.FPRMS+"), '|') SF WHERE SF.FieldNo = 11) = 1 THEN MCP.PRICEW "
+                +"									WHEN (SELECT SF.FieldValue FROM dbo.fnSeperateField ((SELECT F.SOVAL FROM FPRMS AS F WHERE F.COMPANY = "+SALDOC.COMPANY+" AND F.SOSOURCE = 1351 AND F.FPRMS = "+SALDOC.FPRMS+"), '|') SF WHERE SF.FieldNo = 11) = 2 THEN MCP.PRICER "
+                +"									ELSE NULL END) "
+                +"						FROM MTRLCMP AS MCP "
+                +"						WHERE MCP.COMPANY = "+SALDOC.COMPANY
+                +"						AND MCP.MTRL = M.MTRL) "
+                +"					,(CASE "
+                +"						WHEN "+SALDOC.COMPANY+" != 1002 THEN M.PRICER "
+                +"						WHEN (SELECT SF.FieldValue FROM dbo.fnSeperateField ((SELECT F.SOVAL FROM FPRMS AS F WHERE F.COMPANY = "+SALDOC.COMPANY+" AND F.SOSOURCE = 1351 AND F.FPRMS = "+SALDOC.FPRMS+"), '|') SF WHERE SF.FieldNo = 11) = 1 THEN M.PRICEW "
+                +"						WHEN (SELECT SF.FieldValue FROM dbo.fnSeperateField ((SELECT F.SOVAL FROM FPRMS AS F WHERE F.COMPANY = "+SALDOC.COMPANY+" AND F.SOSOURCE = 1351 AND F.FPRMS = "+SALDOC.FPRMS+"), '|') SF WHERE SF.FieldNo = 11) = 2 THEN M.PRICER "
+                +"						ELSE NULL END)))) AS PRICE "
+                +" 	,ISNULL((SELECT dbo.fn_GetDiscGroupUtbl01("+SALDOC.COMPANY+", "+vDiscRule1+", '"+vDate.SqlDate()+"', "+(SALDOC.ISNULL("TRDR")==1?'NULL':SALDOC.TRDR)+", M.MTRL)) "
+                +" 			,ISNULL((SELECT dbo.fn_GetDiscGroupUtbl01("+SALDOC.COMPANY+", "+vDiscRule2+", '"+vDate.SqlDate()+"', "+(SALDOC.ISNULL("TRDR")==1?'NULL':SALDOC.TRDR)+", M.MTRL)), "
+                +"						0)) AS DISC1PRC "
+                +" 	,ISNULL((SELECT dbo.fn_GetDiscBlckFrd("+SALDOC.COMPANY+", "+vDiscRule3+", '"+vDate.SqlDate()+"', M.MTRL, "+SALDOC.X_BUSUNITS+")), "
+                +"						0) AS DISC1PRCBF "
+                +" FROM MTRL AS M "
+                +" WHERE M.MTRL = "+ITELINES.MTRL;
+        var dsPrcDt = X.GETSQLDATASET(vSQL, null);
+        vPrcDisc = [dsPrcDt.PRICE,dsPrcDt.DISC1PRC+dsPrcDt.DISC1PRCBF];
+
+        InsLog("GetItemPrice",SALDOC.COMPANY,SALDOC.SERIES,ITELINES.MTRL,SALDOC.TRDR,SALDOC.TRNDATE,ITELINES.cccSimItemSrch,vControler,"On GetItemPrice",0,X.SYS.USER,SALDOC.VARCHAR01,dsPrcDt.PRICE,dsPrcDt.DISC1PRC,dsPrcDt.DISC1PRCBF,GetNewID(),ITELINES.MTRLINES);
+    }
+    catch (e) {
+        InsLog("GetItemPrice",SALDOC.COMPANY,SALDOC.SERIES,ITELINES.MTRL,SALDOC.TRDR,SALDOC.TRNDATE,ITELINES.cccSimItemSrch,vControler,"Error GetItemPrice "+e.description,1,X.SYS.USER,SALDOC.VARCHAR01,ITELINES.PRICE,ITELINES.DISC1PRC,null,GetNewID(),ITELINES.MTRLINES);
+    }
+    return vPrcDisc;
+}
+
+function PadField(vField,vChar,vWidth) {
+    vField = String(vField);
+    vField = (vField.length > vWidth ? vField.substr(0,vWidth) : vField);
+    return (vField.length >= vWidth ? vField : new Array(vWidth - vField.length + 1).join(vChar) + vField);
+}
+
+function GetMemTblCodes(vTable, vTableName, vArray, vRtrnFld) {
+    var vValues = vArray.split(",");
+    var vRtrnStr = "";
+    for (var i=0; i<vValues.length; i++) {
+        if (vTable == 1) {
+            vRtrnStr = vRtrnStr + "," + X.UTBL01.LOOKUP("COMPANY;SODTYPE;"+vTableName, X.SYS.MAINCOMPANY, 51, vValues[i], vRtrnFld);
+        }
+        if (vTable == 2) {
+            vRtrnStr = vRtrnStr + "," + X.MTRGROUP.LOOKUP("COMPANY;SODTYPE;"+vTableName, X.SYS.MAINCOMPANY, 51, vValues[i], vRtrnFld);
+        }
+    }
+    return vRtrnStr.substr(1);
+}
+
+function ItemInLines(vItem, vUtbl01) {
+    //if (ITELINES.LOCATE("MTRL;CCCUTBL01", vItem, vUtbl01) == 1) {
+    if (X.FILTERSUM("MTRLINES.MTRL","MTRL="+vItem+" AND CCCUTBL01="+vUtbl01) > 0) {
+        if(X.SYS.USERLANG == "EL"){
+            return X.ASKYESNO("Υπάρχων Είδος","Το είδος υπάρχει ήδη, θέλετε να το προσθέσετε;");
+        }
+        else if (X.SYS.USERLANG == "EN"){
+            return X.ASKYESNO("Existing item","The item already exists, Would you like to add it ?;");
+        }
+        else if (X.SYS.USERLANG == "SR"){
+            return X.ASKYESNO("Artikal postoji","Artikal već postoji, želite li da ga dodate ?;");
+        }
+    }
+    
+    return 2;
+}
+
+function ChooseConversion() {
+    var vSelRecs = X.GETPARAM("SELRECS");
+    if (vSelRecs == "") {
+    //X.WARNING ("Δεν επιλέξατε παραστατικό!");
+        X.WARNING((X.SYS.USERLANG == "EL" ? "Δεν επιλέξατε παραστατικό!" :
+                            (X.SYS.USERLANG == "EN" ? "No document was select!" :
+                                (X.SYS.USERLANG == "SR" ? "No document was select!" : "No Supported Language"))));
+        return;
+    }
+    else {
+        vSelRecs = vSelRecs.replace(/\?/g,",");
+        var vSQL = "SELECT FINDOC.FINDOC "
+                +" 	,TRDR "
+                +" 	,TRUCKSNO "
+                +" FROM FINDOC "
+                +" INNER JOIN MTRDOC "
+                +" ON MTRDOC.FINDOC = FINDOC.FINDOC "
+                +" WHERE "+vSelRecs
+                +" AND TRUCKSNO IS NOT NULL "
+                +" ORDER BY TRDR,TRUCKSNO ";
+        var vDsWithTruckNo = X.GETSQLDATASET(vSQL, null);
+        if (vDsWithTruckNo.RECORDCOUNT > 0) {
+            var vSelDocs = [], vDocs = [], vCustomer = 0, vTrucksNo = 0;
+            vDsWithTruckNo.FIRST;
+            while (!vDsWithTruckNo.EOF()) {
+                if ((vCustomer != vDsWithTruckNo.TRDR) || (vTrucksNo != vDsWithTruckNo.TRUCKSNO)) {
+                    vCustomer = vDsWithTruckNo.TRDR;
+                    vTrucksNo = vDsWithTruckNo.TRUCKSNO;
+                }
+                vDocs.push([vDsWithTruckNo.FINDOC]);
+                vDsWithTruckNo.NEXT;
+                if ((vCustomer != vDsWithTruckNo.TRDR) || (vTrucksNo != vDsWithTruckNo.TRUCKSNO) || (vDsWithTruckNo.EOF())) {
+                    vSelDocs.push(vDocs);
+                    vDocs = [];
+                }
+            }
+            //vSelDocs = vSelDocs.filter(function (self) {return self.length != 0;}); //Remove Empty
+            for (var i=0; i<vSelDocs.length; i++) {
+                X.EVAL("SOTRANSFORM.RULEBYID(542,"+vSelDocs[i].join(",")+")");
+            }
+        }
+        var vRecWithoutTruckNo = X.SQL("SELECT '((FINDOC.FINDOC IN ('+STUFF((SELECT '?'+CAST(FINDOC AS VARCHAR) FROM MTRDOC AS FINDOC WHERE "+vSelRecs+" AND TRUCKSNO IS NULL FOR XML PATH('')),1,1,'')+')))'", null);
+        if (vRecWithoutTruckNo) {
+            X.SETPARAM("SELRECS", vRecWithoutTruckNo);
+            X.EXEC("XCMD:CONVERTDLG,SOSOURCE:1351");
+        }
+    }
+}
+
+function ConvertLines() {
+    var vSelRecs = X.GETPARAM("SELRECS");
+    vSelRecs = vSelRecs.replace('?',',');
+    vSelRecs = X.SETPARAM("SELRECS",vSelRecs);
+    if (vSelRecs == "") {
+    //	X.WARNING ("Δεν επιλέξατε γραμμές παραστατικών!");
+            X.WARNING((X.SYS.USERLANG == "EL" ? "Δεν επιλέξατε γραμμές παραστατικών!" :
+                            (X.SYS.USERLANG == "EN" ? "You did not select any document lines!" :
+                                (X.SYS.USERLANG == "SR" ? "Niste izabrali nijednu stavku dokumenta!" : "No Supported Language"))));
+        return;
+    }
+    else {
+        X.EXEC("XCMD:ClientImport,ScriptName:ConvertLines");
+    }
+}
+
+function RunItemSearch(vType) {
+    X.FOCUSFIELD("cccSrchFltrs.Integer01");
+    var vCodeSearch = cccSrchFltrs.Varchar01;
+    if ((vCodeSearch.length > 3) || (vType == 2)) {
+        CleanTableLines();
+        //var vItemIDs = [];, vItemCodes = [[]];
+        //var vItemData = GetItemResults(vType);
+        var vItemIDs = GetItemResults(vType);
+        //vItemIDs = vItemData[0];
+        //vItemCodes = vItemData[1];
+        if (vItemIDs.length > 0) {
+            //vItemIDs = vItemIDs.filter(function(item, pos, self) {return self.indexOf(item) == pos;}); //Remove Duplicates
+            //vItemData = vItemData.concat(GetSimilarResults(vItemIDs.join(",")));
+            vItemIDs = vItemIDs.concat(GetSimilarResults(vItemIDs.join(",")));
+            //vItemIDs = vItemIDs.concat(vItemData[2]);
+            //vItemCodes = vItemCodes.concat(vItemData[3]);
+            //vItemIDs = vItemIDs.filter(function(item, pos, self) {return self.indexOf(item) == pos;}); //Remove Duplicates
+            GetStockResults(vItemIDs.join(","));
+            //vItemCodes = vItemCodes.filter(function (self) {return self.length != 0;}); //Remove Empty
+            GetApplicationResults(vItemIDs/*,vItemCodes*/);
+        }
+    }
+    else {
+    //	X.WARNING("Πρέπει να συμπληρώσετε τουλάχιστον 4 χαρακτήρες.");
+            X.WARNING((X.SYS.USERLANG == "EL" ? "Πρέπει να συμπληρώσετε τουλάχιστον 4 χαρακτήρες." :
+                            (X.SYS.USERLANG == "EN" ? "You must fill out at least 4 characters." :
+                                (X.SYS.USERLANG == "SR" ? "Morate popuniti najmanje 4 karaktera." : "No Supported Language"))));
+    }
+}
+
+function CleanTableLines() {
+    try {
+        var dsTbl1 = X.EXEC("CODE:ModuleIntf.GetDataset", X.MODULE, "cccSrchRslts1");
+        var dsTbl2 = X.EXEC("CODE:ModuleIntf.GetDataset", X.MODULE, "cccSrchRslts2");
+        var dsTbl3 = X.EXEC("CODE:ModuleIntf.GetDataset", X.MODULE, "cccSrchRslts3");
+        var dsTbl4 = X.EXEC("CODE:ModuleIntf.GetDataset", X.MODULE, "cccSrchRslts4");
+        X.EXEC("CODE:ModuleIntf.DatasetClose", dsTbl4);
+        X.EXEC("CODE:ModuleIntf.DatasetClose", dsTbl3);
+        X.EXEC("CODE:ModuleIntf.DatasetClose", dsTbl2);
+        X.EXEC("CODE:ModuleIntf.DatasetClose", dsTbl1);
+        X.EXEC("CODE:ModuleIntf.DatasetOpen", dsTbl1);
+        X.EXEC("CODE:ModuleIntf.DatasetOpen", dsTbl2);
+        X.EXEC("CODE:ModuleIntf.DatasetOpen", dsTbl3);
+        X.EXEC("CODE:ModuleIntf.DatasetOpen", dsTbl4);
+        ////cccSrchRslts1.DISABLECONTROLS;
+        ////cccSrchRslts2.DISABLECONTROLS;
+        ////cccSrchRslts3.DISABLECONTROLS;
+        ////cccSrchRslts4.DISABLECONTROLS;
+        //cccSrchRslts1.FIRST;
+        //while (!cccSrchRslts1.EOF()) {
+        //	cccSrchRslts2.FIRST;
+        //	while (!cccSrchRslts2.EOF()) {
+        //		cccSrchRslts2.DELETE;
+        //	}
+        //	cccSrchRslts3.FIRST;
+        //	while (!cccSrchRslts3.EOF()) {
+        //		cccSrchRslts3.DELETE;
+        //	}
+        //	cccSrchRslts4.FIRST;
+        //	while (!cccSrchRslts4.EOF()) {
+        //		cccSrchRslts4.DELETE;
+        //	}
+        //	cccSrchRslts1.DELETE;
+        //}
+    }
+    catch(e){
+        X.WARNING(e.description);
+    }
+    finally{
+        //cccSrchRslts4.ENABLECONTROLS;
+        //cccSrchRslts3.ENABLECONTROLS;
+        //cccSrchRslts2.ENABLECONTROLS;
+        //cccSrchRslts1.ENABLECONTROLS;
+    }
+}
+
+function AdjustPaymentEditor(setVal){
+    var paym;
+    paym = 0;
+    if(SALDOC.X_BPAYMENT >0){
+        paym = SALDOC.X_BPAYMENT;
+    }
+    else if (SALDOC.X_PAYMENT >0){
+        paym = SALDOC.X_PAYMENT;
+    }
+    X.SETFIELDEDITOR("SALDOC.PAYMENT", "PAYMENT(F[SODTYPE=13],W[PAYMENT = "+paym+" OR PAYMENT = 30 OR PAYMENT = 62 OR PAYMENT = 63])");
+    if(setVal){
+        if (CCCTRDEXTRA.SINT1 == 1) {
+            SALDOC.PAYMENT = 30;
+        }
+        else {
+            SALDOC.PAYMENT = paym;
+        }
+    }
+}
+
+function AbjustSeriesEditor() {
+    var sseries, vTfprms = 0;
+
+    var preSeries = X.CCCTRDSERIES.LOOKUP("COMPANY;BRANCH;TRDCATEGORY", SALDOC.COMPANY, SALDOC.BRANCH, SALDOC.X_TRDCATEGORY, "SERIES");
+    if(preSeries>0){
+        //SALDOC.SERIES = preSeries;
+        sseries = preSeries;
+    }
+    var sql = " SELECT (CASE WHEN TC.TRDR IS NOT NULL THEN ISNULL(TC.CCCPREPAY,0) ELSE ISNULL(TE.cccPrePay,0) END) AS PrePay,T.cccFinStates "
+            + " ,ISNULL(TE.CCCISBLOCKED,0) AS IsBlocked,ISNULL(TE.CCCHIDEDISCUSR,0) AS HideDiscUsr,REPLACE(TE.cccTfprms,',',' , ') AS Tfprms "
+            + " FROM TRDR AS T "
+            + " LEFT JOIN TRDEXTRA AS TE ON TE.TRDR = T.TRDR "
+            + " LEFT JOIN TRDRCMP AS TC ON TC.TRDR = T.TRDR AND TC.COMPANY = "+SALDOC.COMPANY 
+            + " WHERE T.TRDR = "+SALDOC.TRDR;
+    var ds = X.GETSQLDATASET(sql, null);
+    if(ds.RECORDCOUNT>0){
+        vTfprms = ds.Tfprms;
+        if ((ds.PrePay==1) || (ds.IsBlocked==1)){
+            switch (parseInt(SALDOC.BRANCH)) {
+                case 1000:
+                //	SALDOC.SERIES = 1003;
+                    sseries = 1003;	
+                    break;
+                case 1001:
+                //	SALDOC.SERIES = 2003;
+                    sseries = 2003; 
+                    break;
+                case 1002:
+                //	SALDOC.SERIES = 3003;
+                    sseries = 3003;
+                    break;
+            }
+        }
+
+        if (ds.cccFinStates > 0) {
+            CCCTRDEXTRA.SINT3 = ds.cccFinStates;
+        }
+        else {
+            CCCTRDEXTRA.SINT3 = 0;
+        }
+
+        if (sseries > 0){
+            SALDOC.SERIES = sseries;
+        }
+
+        if (ds.PrePay==1) {
+            SALDOC.FINSTATES = 5;
+            X.WARNING("Ο Πελάτης έχει δείκτη προεξόφλησης. Δεν μπορείτε να προχωρήσετε σε καταχώρηση παραγγελίας παρά μόνο σε προσφορά χωρίς δέσμευση!");
+        }
+
+        if(ds.IsBlocked==1) {
+            CCCTRDEXTRA.SINT1=1;
+            SALDOC.TRDR = null;
+            X.EXCEPTION("O πελάτης είναι ΜΠΛΟΚΑΡΙΣΜΕΝΟΣ");
+        }
+        else {
+            CCCTRDEXTRA.SINT1=0;
+        }
+        
+        if(ds.HideDiscUsr==1) {
+            CCCTRDEXTRA.SINT2=1;
+        }
+        else {
+            CCCTRDEXTRA.SINT2=0;
+        }
+        
+        if(SALDOC.COMPANY != 1002) { //Απενεργοποίηση για Σερβία, Δεν Εξυπηρετεί!!
+            //if(CCCTRDEXTRA.SINT1==1){
+            //	X.SETFIELDEDITOR("SALDOC.SERIES", "SERIES(W[FPRMS IN (7001, 7002, 7003, 7019, 7021, 7022, 7023)],U[FPRMS;BUSUNITS;GSISPACKAGES=FPRMS;BUSUNITS;GSISPACKAGES@])");
+            //}
+            //else{
+                if (vTfprms) {
+                    X.SETFIELDEDITOR("SALDOC.SERIES", "SERIES(W[SOSOURCE=:FINDOC.SOSOURCE AND ISACTIVE=1 AND TFPRMS IN ("+vTfprms+")],U[FPRMS;BUSUNITS;GSISPACKAGES=FPRMS;BUSUNITS;GSISPACKAGES@])");
+                }
+                else {
+                    X.SETFIELDEDITOR("SALDOC.SERIES", "SERIES(F[SOSOURCE;ISACTIVE=:FINDOC.SOSOURCE;1],U[FPRMS;BUSUNITS;GSISPACKAGES=FPRMS;BUSUNITS;GSISPACKAGES@])");
+                }
+            //}
+        }
+    }
+}
+
+/*function ReadOnlyFields(isCancel) {
+    if(!isCancel){
+        if(SALDOC.TRDR > 0){
+            if(SALDOC.X_TRDCATEGORY == vCustCateg) {
+                    SALDOC.SETREADONLY("DISC1PRC", "TRUE");
+                    SALDOC.SETREADONLY("DISC1VAL", "TRUE");
+                    SALDOC.SETREADONLY("DISC2PRC", "TRUE");
+                    SALDOC.SETREADONLY("DISC2VAL", "TRUE");
+            }
+            else{
+                if((X.USERS.LOOKUP("USERS", X.SYS.USER, "SOADMINISTRATOR") == 0) && (!(X.SYS.USER in {118:1, 137:1, 156:1, 1000:1}))){
+                    SALDOC.SETREADONLY("DISC1PRC", "TRUE");
+                    SALDOC.SETREADONLY("DISC1VAL", "TRUE");
+                    SALDOC.SETREADONLY("DISC2PRC", "TRUE");
+                    SALDOC.SETREADONLY("DISC2VAL", "TRUE");
+                }
+                else{
+                    SALDOC.SETREADONLY("DISC1PRC", "FALSE");
+                    SALDOC.SETREADONLY("DISC1VAL", "FALSE");
+                    SALDOC.SETREADONLY("DISC2PRC", "FALSE");
+                    SALDOC.SETREADONLY("DISC2VAL", "FALSE");
+                }
+            }
+        }
+        else{
+                SALDOC.SETREADONLY("DISC1PRC", "FALSE");
+                SALDOC.SETREADONLY("DISC1VAL", "FALSE");
+                SALDOC.SETREADONLY("DISC2PRC", "FALSE");
+                SALDOC.SETREADONLY("DISC2VAL", "FALSE");
+                SALDOC.DISC1PRC = 0;
+        }
+    }
+    else{
+                SALDOC.SETREADONLY("DISC1PRC", "FALSE");
+                SALDOC.SETREADONLY("DISC1VAL", "FALSE");
+                SALDOC.SETREADONLY("DISC2PRC", "FALSE");
+                SALDOC.SETREADONLY("DISC2VAL", "FALSE");
+                SALDOC.DISC1PRC = 0;
+    }
+}*/
+
+function SearchFilters(vType) {
+    var vFilter = " FROM cccSimilarItems AS SI "
+            +" INNER JOIN MTRL AS M "
+            +" ON M.MTRL = SI.MTRL "
+            +" AND SI.ISACTIVE = 1 "
+            +" AND M.ISACTIVE = 1 "
+            +((cccSrchFltrs.SmallInt01 == 5) ? " INNER JOIN cccItemGenCodes AS IGC " : "")
+            +((cccSrchFltrs.SmallInt01 == 5) ? " ON IGC.MTRL = M.MTRL " : "")
+            +" LEFT OUTER JOIN UTBL01 AS U "
+            +" ON U.COMPANY = M.COMPANY "
+            +" AND U.SODTYPE = M.SODTYPE "
+            +" AND U.UTBL01 = SI.UTBL01 "
+            +" LEFT OUTER JOIN MTRGROUP AS MG "
+            +" ON MG.COMPANY = M.COMPANY "
+            +" AND MG.SODTYPE = M.SODTYPE "
+            +" AND MG.MTRGROUP = M.MTRGROUP "
+            +" LEFT OUTER JOIN cccMtrlPosition AS MP "
+            +" ON MP.cccMtrlPosition = M.cccMtrlPosition "
+            +((cccSrchFltrs.SmallInt01 == 6) ? " INNER JOIN MTRSUPPRCS AS MSP " : "")
+            +((cccSrchFltrs.SmallInt01 == 6) ? " ON MSP.COMPANY = M.COMPANY " : "")
+            +((cccSrchFltrs.SmallInt01 == 6) ? " AND MSP.MTRL = M.MTRL " : "")
+            +"";
+            
+    var CheckStock = "\n AND (CASE "
+                    +"\n		WHEN ISNULL(MG.cccWithStock,0)=0 THEN 1 "
+                    +"\n		ELSE (SELECT TOP 1 1 from cccDvMtrlStockPerBranch WHERE MTRL = M.MTRL and LoginCompany="+SALDOC.COMPANY+" and StockCompany="+SALDOC.COMPANY+" /*and StockBranch="+SALDOC.BRANCH+"*/ and QtyShow=1 ) "
+                    +"\n	END )>0";
+
+    if (vType == 1) {
+        if (cccSrchFltrs.SmallInt02 == 1) {
+            vFilter = vFilter + " WHERE MG.CODE NOT LIKE '1804%' ";
+        }
+        else if (cccSrchFltrs.SmallInt02 == 2) {
+            vFilter = vFilter + " WHERE MG.CODE LIKE '1804%' ";
+        }
+
+        vFilter = ((cccSrchFltrs.SmallInt02 < 3) ? vFilter + " AND " : vFilter + " WHERE ");
+
+        if (cccSrchFltrs.SmallInt01 == 1) {
+            //vFilter = vFilter + " (SI.CODE LIKE '"+cccSrchFltrs.Varchar01+"' OR M.CODE LIKE '"+cccSrchFltrs.Varchar01+"')";
+            vFilter = vFilter + " SI.CODE LIKE '"+cccSrchFltrs.Varchar01+"'";
+        }
+        else if (cccSrchFltrs.SmallInt01 == 2) {
+            //vFilter = vFilter + " (SI.CODE LIKE '"+cccSrchFltrs.Varchar01+"'+CHAR(37) OR M.CODE LIKE '"+cccSrchFltrs.Varchar01+"'+CHAR(37))";
+            vFilter = vFilter + " SI.CODE LIKE '"+cccSrchFltrs.Varchar01+"'+CHAR(37) ";
+        }
+        else if (cccSrchFltrs.SmallInt01 == 3) {
+            //vFilter = vFilter + " (SI.NAME LIKE CHAR(37)+'"+cccSrchFltrs.Varchar01+"'+CHAR(37) OR M.NAME LIKE CHAR(37)+'"+cccSrchFltrs.Varchar01+"'+CHAR(37))";
+            vFilter = vFilter + " SI.NAME LIKE CHAR(37)+'"+cccSrchFltrs.Varchar01+"'+CHAR(37) ";
+        }
+        else if (cccSrchFltrs.SmallInt01 == 4) {
+            vFilter = vFilter + " SI.UTBL01 IN (SELECT UU.UTBL01 FROM UTBL01 AS UU WHERE UU.COMPANY = 1000 AND UU.SODTYPE = 51 AND UU.CODE = '"+cccSrchFltrs.Varchar01+"')";
+        }
+        else if (cccSrchFltrs.SmallInt01 == 5) {
+            vFilter = vFilter + " IGC.GENCODE LIKE '%"+cccSrchFltrs.Varchar01+"%'";
+        }
+        else if (cccSrchFltrs.SmallInt01 == 6) {
+            vFilter = vFilter + " (MSP.MTRSUPCODE LIKE '"+cccSrchFltrs.Varchar01+"'+CHAR(37) OR MSP.cccGenCode LIKE '"+cccSrchFltrs.Varchar01+"'+CHAR(37))";
+        }
+    }
+    else if ((vType == 2) && ((cccSrchFltrs.ISNULL("Varchar02") == 0) || (cccSrchFltrs.ISNULL("Varchar03") == 0))){
+        vFilter = vFilter + " WHERE ";
+        if (cccSrchFltrs.ISNULL("Varchar02") == 0) {
+            var vUtbl01 = (cccSrchFltrs.Varchar02).split(",");
+            vFilter = vFilter + " ( ";
+            for (var i=0; i<vUtbl01.length; i++) {
+                vFilter = vFilter + " U.SOHCODE LIKE (SELECT UU.SOHCODE+'%' FROM UTBL01 AS UU WHERE UU.COMPANY = 1000 AND UU.SODTYPE = 51 AND UU.UTBL01 = "+vUtbl01[i]+")"+" OR ";
+            }
+            vFilter = vFilter.substr(0,vFilter.length-4) + " ) ";
+        }
+        if (cccSrchFltrs.ISNULL("Varchar03") == 0) {
+            var vMGroup = (cccSrchFltrs.Varchar03).split(",");
+            vFilter = vFilter + ((cccSrchFltrs.ISNULL("Varchar02") == 1) ? "" : " AND ") + " ( ";
+            for (var i=0;i<vMGroup.length; i++) {
+                vFilter = vFilter + " MG.SOHCODE LIKE (SELECT MMG.SOHCODE+'%' FROM MTRGROUP AS MMG WHERE MMG.COMPANY = 1000 AND MMG.SODTYPE = 51 AND MMG.MTRGROUP = "+vMGroup[i]+")"+" OR ";
+            }
+            vFilter = vFilter.substr(0,vFilter.length-4) + " ) ";
+        }
+    }
+    else {
+        vFilter = vFilter + " WHERE 1=0 ";
+    }
+vFilter+=CheckStock;
+    return vFilter;
+}
+
+function GetItemResults(vType) {
+    var vDate = new Date(SALDOC.TRNDATE);
+    var vItemIDs = [], vVatPrcnt = 0;//, vItemCodes = [[]];
+    //var vSQL = "SELECT TOP 1000 "+(((cccSrchFltrs.SmallInt01 == 5) || (cccSrchFltrs.SmallInt01 == 6)) ? "DISTINCT" : "")+" SI.MTRL AS Integer01 "
+    var vSQL = "SELECT "+(((cccSrchFltrs.SmallInt01 == 5) || (cccSrchFltrs.SmallInt01 == 6)) ? "DISTINCT" : "")+" SI.MTRL AS Integer01 "
+            +" 	,SI.CODE AS VarChar01 "
+            +" 	,SI.NAME AS VarChar02 "
+            +" 	,(SELECT STL.SOVALUE "
+            +" 		FROM SOCTRANSL AS STL "
+            +" 		WHERE STL.TABLENM = 'CCCSIMILARITEMS' "
+            +" 		AND STL.FIELDID = 1 "
+            +" 		AND STL.SOLANG = "+(SALDOC.COMPANY == 1002 ? "'SR' " : "'EN' ")
+            +" 		AND STL.KEY1 = SI.cccSimilarItems) AS nVarChar02 "
+            +" 	,(SELECT MP.NAME "
+            +" 		FROM cccMtrlPosition AS MP "
+            +" 		WHERE MP.cccMtrlPosition = M.cccMtrlPosition) AS VarChar04 "
+            +" 	,(SELECT MP.NAME1 "
+            +" 		FROM cccMtrlPosition AS MP "
+            +" 		WHERE MP.cccMtrlPosition = M.cccMtrlPosition) AS nVarChar04 "
+            +" 	,U.UTBL01 AS SmallInt01 "
+            +" 	,ISNULL((SELECT SUM(MD.IMPQTY1-MD.EXPQTY1) "
+            +" 			FROM MTRFINDATA AS MD "
+            +" 			INNER JOIN WHOUSE AS WH "
+            +" 			ON WH.COMPANY = MD.COMPANY "
+            +" 			AND WH.WHOUSE = MD.WHOUSE "
+            +" 			AND WH.CCCREMCALC = 1 "
+            +(X.SYS.MAINCOMPANY==SALDOC.COMPANY?"":" AND WH.CCCSHOWINALL = 1 ")
+            +" 			INNER JOIN BRANCH AS BR "
+            +" 			ON BR.COMPANY = WH.COMPANY "
+            +" 			AND CHARINDEX(','+CAST(WH.WHOUSE AS VARCHAR)+',',','+BR.WHOUSES+',') > 0 "
+            +" 			AND BR.BRANCH = "+SALDOC.BRANCH
+            +" 			WHERE MD.COMPANY = "+SALDOC.COMPANY
+            +" 			AND MD.FISCPRD = YEAR(GETDATE()) "
+            +" 			AND MD.MTRL = M.MTRL),0) "
+            +" 		-ISNULL((SELECT SUM(ISNULL(FDL.QTY1,0)-ISNULL(FDL.QTY1COV,0)-ISNULL(FDL.QTY1CANC,0)) "
+            +" 			FROM MTRLINES AS FDL "
+            +" 			INNER JOIN RESTMODE AS RM "
+            +" 			ON RM.COMPANY = "+X.SYS.MAINCOMPANY
+            +" 			AND RM.RESTMODE = FDL.RESTMODE "
+            +" 			AND RM.RESTCATEG = 2 "
+            +" 			INNER JOIN WHOUSE AS WH "
+            +" 			ON WH.COMPANY = FDL.COMPANY "
+            +" 			AND WH.WHOUSE = FDL.WHOUSE "
+            +" 			AND WH.CCCREMCALC = 1 "
+            +(X.SYS.MAINCOMPANY==SALDOC.COMPANY?"":" AND WH.CCCSHOWINALL = 1 ")
+            +" 			INNER JOIN BRANCH AS BR "
+            +" 			ON BR.COMPANY = WH.COMPANY "
+            +" 			AND CHARINDEX(','+CAST(WH.WHOUSE AS VARCHAR)+',',','+BR.WHOUSES+',') > 0 "
+            +" 			AND BR.BRANCH = "+SALDOC.BRANCH
+            +" 			WHERE FDL.COMPANY = "+SALDOC.COMPANY
+            +" 			AND FDL.MTRL = M.MTRL "
+            +" 			AND FDL.PENDING = 1),0) AS Decimal01 "
+            +" 	,ISNULL((SELECT dbo.fn_GetPriceGroupUtbl01("+SALDOC.COMPANY+", "+vDiscRule1+", '"+vDate.SqlDate()+"', "+(SALDOC.ISNULL("TRDR")==1?'NULL':SALDOC.TRDR)+", M.MTRL)) "
+            +" 			,ISNULL((SELECT dbo.fn_GetPriceGroupUtbl01("+SALDOC.COMPANY+", "+vDiscRule2+", '"+vDate.SqlDate()+"', "+(SALDOC.ISNULL("TRDR")==1?'NULL':SALDOC.TRDR)+", M.MTRL)) "
+            +"				,ISNULL((SELECT (CASE "
+            +"									WHEN "+SALDOC.COMPANY+" != 1002 THEN MCP.PRICER "
+            +"									WHEN (SELECT SF.FieldValue FROM dbo.fnSeperateField ((SELECT F.SOVAL FROM FPRMS AS F WHERE F.COMPANY = "+SALDOC.COMPANY+" AND F.SOSOURCE = 1351 AND F.FPRMS = "+SALDOC.FPRMS+"), '|') SF WHERE SF.FieldNo = 11) = 1 THEN MCP.PRICEW "
+            +"									WHEN (SELECT SF.FieldValue FROM dbo.fnSeperateField ((SELECT F.SOVAL FROM FPRMS AS F WHERE F.COMPANY = "+SALDOC.COMPANY+" AND F.SOSOURCE = 1351 AND F.FPRMS = "+SALDOC.FPRMS+"), '|') SF WHERE SF.FieldNo = 11) = 2 THEN MCP.PRICER "
+            +"									ELSE NULL END) "
+            +"						FROM MTRLCMP AS MCP "
+            +"						WHERE MCP.COMPANY = "+SALDOC.COMPANY
+            +"						AND MCP.MTRL = M.MTRL) "
+            +"					,(CASE "
+            +"						WHEN "+SALDOC.COMPANY+" != 1002 THEN M.PRICER "
+            +"						WHEN (SELECT SF.FieldValue FROM dbo.fnSeperateField ((SELECT F.SOVAL FROM FPRMS AS F WHERE F.COMPANY = "+SALDOC.COMPANY+" AND F.SOSOURCE = 1351 AND F.FPRMS = "+SALDOC.FPRMS+"), '|') SF WHERE SF.FieldNo = 11) = 1 THEN M.PRICEW "
+            +"						WHEN (SELECT SF.FieldValue FROM dbo.fnSeperateField ((SELECT F.SOVAL FROM FPRMS AS F WHERE F.COMPANY = "+SALDOC.COMPANY+" AND F.SOSOURCE = 1351 AND F.FPRMS = "+SALDOC.FPRMS+"), '|') SF WHERE SF.FieldNo = 11) = 2 THEN M.PRICER "
+            +"						ELSE NULL END)))) AS Decimal02 "
+            +" 	,ISNULL((SELECT dbo.fn_GetDiscGroupUtbl01("+SALDOC.COMPANY+", "+vDiscRule1+", '"+vDate.SqlDate()+"', "+(SALDOC.ISNULL("TRDR")==1?'NULL':SALDOC.TRDR)+", M.MTRL)) "
+            +" 			,ISNULL((SELECT dbo.fn_GetDiscGroupUtbl01("+SALDOC.COMPANY+", "+vDiscRule2+", '"+vDate.SqlDate()+"', "+(SALDOC.ISNULL("TRDR")==1?'NULL':SALDOC.TRDR)+", M.MTRL)), "
+            +"						0)) AS Decimal03 "
+            +" 	,ISNULL((SELECT dbo.fn_GetDiscBlckFrd("+SALDOC.COMPANY+", "+vDiscRule3+", '"+vDate.SqlDate()+"', M.MTRL, "+SALDOC.X_BUSUNITS+")), "
+            +"						0) AS Decimal03BF "
+            +" 	,NULL AS Decimal04 "
+            +" 	,ISNULL((SELECT MC.VAT "
+            +" 			FROM MTRLCMP AS MC "
+            +" 			WHERE MC.COMPANY = "+SALDOC.COMPANY
+            +" 			AND MC.MTRL = M.MTRL) "
+            +" 		,M.VAT) AS Decimal05 "
+            +" 	,NULL AS Decimal06 "
+            +"	,ISNULL((SELECT MCP.PRICER "
+            +"		FROM MTRLCMP AS MCP "
+            +"		WHERE MCP.COMPANY = "+SALDOC.COMPANY
+            +"		AND MCP.MTRL = M.MTRL),M.PRICER) AS Decimal07 "
+            +"	,ISNULL((SELECT MCP.PRICEW "
+            +"		FROM MTRLCMP AS MCP "
+            +"		WHERE MCP.COMPANY = "+SALDOC.COMPANY
+            +"		AND MCP.MTRL = M.MTRL),M.PRICEW) AS Decimal08 "
+            +SearchFilters(vType);
+//			+" ORDER BY U.UTBL01 ";
+    var dsSearchResults = X.GETSQLDATASET(vSQL, null);
+    cccSrchFltrs.Integer01 = dsSearchResults.RECORDCOUNT;
+    if (dsSearchResults.RECORDCOUNT > 0) {
+        try {
+            dsSearchResults.FIRST;
+            cccSrchRslts1.DISABLECONTROLS;
+            cccSrchRslts1.FIRST;
+            while (!dsSearchResults.EOF()) {
+                switch (parseInt(SALDOC.VATSTS)) {
+                    case 0:
+                        vVatPrcnt = 0;
+                        break;
+                    case 1:
+                        vVatPrcnt = X.VAT.LOOKUP("VAT",dsSearchResults.Decimal05,"PERCNT");
+                        break;
+                    case 2:
+                        vVatPrcnt = X.VAT.LOOKUP("VAT",dsSearchResults.Decimal05,"VATS1");
+                        vVatPrcnt = X.VAT.LOOKUP("VAT",vVatPrcnt,"PERCNT");
+                        break;
+                    default:
+                        vVatPrcnt = 0;
+                }
+                cccSrchRslts1.APPEND;
+                cccSrchRslts1.Integer01 = dsSearchResults.Integer01;
+                cccSrchRslts1.Integer02 = dsSearchResults.Integer01;
+                cccSrchRslts1.VarChar01 = dsSearchResults.VarChar01;
+                cccSrchRslts1.VarChar02 = (X.SYS.COMPANY == 1002 ? dsSearchResults.nVarChar02 : dsSearchResults.VarChar02);
+                cccSrchRslts1.VarChar03 = dsSearchResults.nVarChar02;
+                cccSrchRslts1.VarChar04 = (X.SYS.COMPANY == 1002 ? dsSearchResults.nVarChar04 : dsSearchResults.VarChar04);
+                cccSrchRslts1.SmallInt01 = dsSearchResults.SmallInt01;
+                cccSrchRslts1.Decimal01 = dsSearchResults.Decimal01;
+                cccSrchRslts1.Decimal02 = dsSearchResults.Decimal02;
+                cccSrchRslts1.Decimal03 = dsSearchResults.Decimal03+dsSearchResults.Decimal03BF;
+                cccSrchRslts1.Decimal04 = cccSrchRslts1.Decimal02*((100-dsSearchResults.Decimal03)/100);
+                cccSrchRslts1.Decimal05 = vVatPrcnt;
+                cccSrchRslts1.Decimal06 = cccSrchRslts1.Decimal04*(1+(vVatPrcnt/100));
+                cccSrchRslts1.Decimal07 = dsSearchResults.Decimal07*(1+(vVatPrcnt/100));
+                cccSrchRslts1.Decimal08 = dsSearchResults.Decimal08*(1+(vVatPrcnt/100));
+                vItemIDs.push(dsSearchResults.Integer01);
+                //vItemCodes.push([dsSearchResults.Integer01,dsSearchResults.VarChar01]);
+                dsSearchResults.NEXT;
+            }
+        }
+        catch(e){
+            X.WARNING(e.description);
+        }
+        finally{
+            //dsSearchResults.free;
+            cccSrchRslts1.FIRST;
+            cccSrchRslts1.ENABLECONTROLS;
+        }
+    }
+    else {
+        //X.WARNING("Δεν βρέθηκαν Είδη για τα κριτήρια που δώσατε!");
+            X.WARNING((X.SYS.USERLANG == "EL" ? "Δεν βρέθηκαν Είδη για τα κριτήρια που δώσατε!" :
+                            (X.SYS.USERLANG == "EN" ? "No items found for the given search criteria!" :
+                                (X.SYS.USERLANG == "SR" ? "Nema rezultata za odabran kriterijum pretrage!" : "No Supported Language"))));
+    }
+    return vItemIDs;//[vItemIDs,vItemCodes];
+}
+
+function GetSimilarResults(fMtrls) {
+    var vDate = new Date(SALDOC.TRNDATE);
+    var vItemIDs = [], vVatPrcnt = 0;//, vItemCodes = [[]];
+    var vSQL = "SELECT MSUB.MTRL AS Integer01 "
+            +" 	,MSUB.MTRLSUB AS Integer02 "
+            +" 	,MSUB.CODE AS VarChar01 "
+            +" 	,MSUB.NAME AS VarChar02 "
+            +" 	,(SELECT MC.NAME "
+            +" 		FROM MTRLCMP AS MC "
+            +" 		WHERE MC.COMPANY = "+SALDOC.COMPANY
+            +" 		AND MC.MTRL = MSUB.MTRLSUB) AS nVarChar02 "
+            +" 	,(SELECT MP.NAME "
+            +" 		FROM cccMtrlPosition AS MP "
+            +" 		WHERE MP.cccMtrlPosition = M.cccMtrlPosition) AS VarChar04 "
+            +" 	,(SELECT MP.NAME1 "
+            +" 		FROM cccMtrlPosition AS MP "
+            +" 		WHERE MP.cccMtrlPosition = M.cccMtrlPosition) AS nVarChar04 "
+            +" 	,U.UTBL01 AS SmallInt01 "
+            +" 	,ISNULL((SELECT SUM(MD.IMPQTY1-MD.EXPQTY1) "
+            +" 			FROM MTRFINDATA AS MD "
+            +" 			INNER JOIN WHOUSE AS WH "
+            +" 			ON WH.COMPANY = MD.COMPANY "
+            +" 			AND WH.WHOUSE = MD.WHOUSE "
+            +" 			AND WH.CCCREMCALC = 1 "
+            +(X.SYS.MAINCOMPANY==SALDOC.COMPANY?"":" AND WH.CCCSHOWINALL = 1 ")
+            +" 			INNER JOIN BRANCH AS BR "
+            +" 			ON BR.COMPANY = WH.COMPANY "
+            +" 			AND CHARINDEX(','+CAST(WH.WHOUSE AS VARCHAR)+',',','+BR.WHOUSES+',') > 0 "
+            +" 			AND BR.BRANCH = "+SALDOC.BRANCH
+            +" 			WHERE MD.COMPANY = "+SALDOC.COMPANY
+            +" 			AND MD.FISCPRD = YEAR(GETDATE()) "
+            +" 			AND MD.MTRL = MSUB.MTRLSUB),0) "
+            +" 		-ISNULL((SELECT SUM(ISNULL(FDL.QTY1,0)-ISNULL(FDL.QTY1COV,0)-ISNULL(FDL.QTY1CANC,0)) "
+            +" 			FROM MTRLINES AS FDL "
+            +" 			INNER JOIN RESTMODE AS RM "
+            +" 			ON RM.COMPANY = "+X.SYS.MAINCOMPANY
+            +" 			AND RM.RESTMODE = FDL.RESTMODE "
+            +" 			AND RM.RESTCATEG = 2 "
+            +" 			INNER JOIN WHOUSE AS WH "
+            +" 			ON WH.COMPANY = FDL.COMPANY "
+            +" 			AND WH.WHOUSE = FDL.WHOUSE "
+            +" 			AND WH.CCCREMCALC = 1 "
+            +(X.SYS.MAINCOMPANY==SALDOC.COMPANY?"":" AND WH.CCCSHOWINALL = 1 ")
+            +" 			INNER JOIN BRANCH AS BR "
+            +" 			ON BR.COMPANY = WH.COMPANY "
+            +" 			AND CHARINDEX(','+CAST(WH.WHOUSE AS VARCHAR)+',',','+BR.WHOUSES+',') > 0 "
+            +" 			AND BR.BRANCH = "+SALDOC.BRANCH
+            +" 			WHERE FDL.COMPANY = "+SALDOC.COMPANY
+            +" 			AND FDL.MTRL = MSUB.MTRLSUB "
+            +" 			AND FDL.PENDING = 1),0) AS Decimal01 "
+            +" 	,ISNULL((SELECT dbo.fn_GetPriceGroupUtbl01("+SALDOC.COMPANY+", "+vDiscRule1+", '"+vDate.SqlDate()+"', "+(SALDOC.ISNULL("TRDR")==1?'NULL':SALDOC.TRDR)+", M.MTRL)) "
+            +" 			,ISNULL((SELECT dbo.fn_GetPriceGroupUtbl01("+SALDOC.COMPANY+", "+vDiscRule2+", '"+vDate.SqlDate()+"', "+(SALDOC.ISNULL("TRDR")==1?'NULL':SALDOC.TRDR)+", M.MTRL)) "
+            +"				,ISNULL((SELECT (CASE "
+            +"									WHEN "+SALDOC.COMPANY+" != 1002 THEN MCP.PRICER "
+            +"									WHEN (SELECT SF.FieldValue FROM dbo.fnSeperateField ((SELECT F.SOVAL FROM FPRMS AS F WHERE F.COMPANY = "+SALDOC.COMPANY+" AND F.SOSOURCE = 1351 AND F.FPRMS = "+SALDOC.FPRMS+"), '|') SF WHERE SF.FieldNo = 11) = 1 THEN MCP.PRICEW "
+            +"									WHEN (SELECT SF.FieldValue FROM dbo.fnSeperateField ((SELECT F.SOVAL FROM FPRMS AS F WHERE F.COMPANY = "+SALDOC.COMPANY+" AND F.SOSOURCE = 1351 AND F.FPRMS = "+SALDOC.FPRMS+"), '|') SF WHERE SF.FieldNo = 11) = 2 THEN MCP.PRICER "
+            +"									ELSE NULL END) "
+            +"						FROM MTRLCMP AS MCP "
+            +"						WHERE MCP.COMPANY = "+SALDOC.COMPANY
+            +"						AND MCP.MTRL = M.MTRL) "
+            +"					,(CASE "
+            +"						WHEN "+SALDOC.COMPANY+" != 1002 THEN M.PRICER "
+            +"						WHEN (SELECT SF.FieldValue FROM dbo.fnSeperateField ((SELECT F.SOVAL FROM FPRMS AS F WHERE F.COMPANY = "+SALDOC.COMPANY+" AND F.SOSOURCE = 1351 AND F.FPRMS = "+SALDOC.FPRMS+"), '|') SF WHERE SF.FieldNo = 11) = 1 THEN M.PRICEW "
+            +"						WHEN (SELECT SF.FieldValue FROM dbo.fnSeperateField ((SELECT F.SOVAL FROM FPRMS AS F WHERE F.COMPANY = "+SALDOC.COMPANY+" AND F.SOSOURCE = 1351 AND F.FPRMS = "+SALDOC.FPRMS+"), '|') SF WHERE SF.FieldNo = 11) = 2 THEN M.PRICER "
+            +"						ELSE NULL END)))) AS Decimal02 "
+            +" 	,ISNULL((SELECT dbo.fn_GetDiscGroupUtbl01("+SALDOC.COMPANY+", "+vDiscRule1+", '"+vDate.SqlDate()+"', "+(SALDOC.ISNULL("TRDR")==1?'NULL':SALDOC.TRDR)+", M.MTRL)) "
+            +" 			,ISNULL((SELECT dbo.fn_GetDiscGroupUtbl01("+SALDOC.COMPANY+", "+vDiscRule2+", '"+vDate.SqlDate()+"', "+(SALDOC.ISNULL("TRDR")==1?'NULL':SALDOC.TRDR)+", M.MTRL)), "
+            +"						0)) AS Decimal03 "
+            +" 	,ISNULL((SELECT dbo.fn_GetDiscBlckFrd("+SALDOC.COMPANY+", "+vDiscRule3+", '"+vDate.SqlDate()+"', M.MTRL, "+SALDOC.X_BUSUNITS+")), "
+            +"						0) AS Decimal03BF "
+            +" 	,NULL AS Decimal04 "
+            +" 	,ISNULL((SELECT MC.VAT "
+            +" 			FROM MTRLCMP AS MC "
+            +" 			WHERE MC.COMPANY = "+SALDOC.COMPANY
+            +" 			AND MC.MTRL = M.MTRL) "
+            +" 		,M.VAT) AS Decimal05 "
+            +" 	,NULL AS Decimal06 "
+            +"	,ISNULL((SELECT MCP.PRICER "
+            +"		FROM MTRLCMP AS MCP "
+            +"		WHERE MCP.COMPANY = "+SALDOC.COMPANY
+            +"		AND MCP.MTRL = M.MTRL),M.PRICER) AS Decimal07 "
+            +"	,ISNULL((SELECT MCP.PRICEW "
+            +"		FROM MTRLCMP AS MCP "
+            +"		WHERE MCP.COMPANY = "+SALDOC.COMPANY
+            +"		AND MCP.MTRL = M.MTRL),M.PRICEW) AS Decimal08 "
+            +" FROM MTRSUBSTITUTE AS MSUB "
+            +" INNER JOIN MTRL AS M "
+            +" ON M.MTRL = MSUB.MTRLSUB "
+            +" INNER JOIN MTREXTRA AS ME "
+            +" ON ME.MTRL = M.MTRL "
+            +" LEFT OUTER JOIN UTBL01 AS U "
+            +" ON U.COMPANY = ME.COMPANY "
+            +" AND U.SODTYPE = ME.SODTYPE "
+            +" AND U.UTBL01 = ME.UTBL01 "
+            +" WHERE MSUB.MTRL IN ("+fMtrls+")";
+    var dsSearchResults = X.GETSQLDATASET(vSQL, null);
+    if (dsSearchResults.RECORDCOUNT > 0) {
+        //cccSrchFltrs.Integer01 = cccSrchFltrs.Integer01 + dsSearchResults.RECORDCOUNT;
+        try {
+            dsSearchResults.FIRST;
+            cccSrchRslts2.DISABLECONTROLS;
+            cccSrchRslts2.FIRST;
+            while (!dsSearchResults.EOF()) {
+                switch (parseInt(SALDOC.VATSTS)) {
+                    case 0:
+                        vVatPrcnt = 0;
+                        break;
+                    case 1:
+                        vVatPrcnt = X.VAT.LOOKUP("VAT",dsSearchResults.Decimal05,"PERCNT");
+                        break;
+                    case 2:
+                        vVatPrcnt = X.VAT.LOOKUP("VAT",dsSearchResults.Decimal05,"VATS1");
+                        vVatPrcnt = X.VAT.LOOKUP("VAT",vVatPrcnt,"PERCNT");
+                        break;
+                    default:
+                        vVatPrcnt = 0;
+                }
+                cccSrchRslts2.APPEND;
+                cccSrchRslts2.Integer01 = dsSearchResults.Integer01;
+                cccSrchRslts2.Integer02 = dsSearchResults.Integer02;
+                cccSrchRslts2.VarChar01 = dsSearchResults.VarChar01;
+                cccSrchRslts2.VarChar02 = (X.SYS.COMPANY == 1002 ? dsSearchResults.nVarChar02 : dsSearchResults.VarChar02);
+                cccSrchRslts2.VarChar03 = dsSearchResults.nVarChar02;
+                cccSrchRslts2.VarChar04 = (X.SYS.COMPANY == 1002 ? dsSearchResults.nVarChar04 : dsSearchResults.VarChar04);
+                cccSrchRslts2.SmallInt01 = dsSearchResults.SmallInt01;
+                cccSrchRslts2.Decimal01 = dsSearchResults.Decimal01;
+                cccSrchRslts2.Decimal02 = dsSearchResults.Decimal02;
+                cccSrchRslts2.Decimal03 = dsSearchResults.Decimal03+dsSearchResults.Decimal03BF;
+                cccSrchRslts2.Decimal04 = cccSrchRslts2.Decimal02*((100-dsSearchResults.Decimal03)/100);
+                cccSrchRslts2.Decimal05 = vVatPrcnt;
+                cccSrchRslts2.Decimal06 = cccSrchRslts2.Decimal04*(1+(vVatPrcnt/100));
+                cccSrchRslts2.Decimal07 = dsSearchResults.Decimal07*(1+(vVatPrcnt/100));
+                cccSrchRslts2.Decimal08 = dsSearchResults.Decimal08*(1+(vVatPrcnt/100));
+
+                if (cccSrchFltrs.SmallInt01 == 1) {
+                    cccSrchRslts1.APPEND;
+                    cccSrchRslts1.Integer01 = dsSearchResults.Integer01;
+                    cccSrchRslts1.Integer02 = dsSearchResults.Integer02;
+                    cccSrchRslts1.VarChar01 = dsSearchResults.VarChar01;
+                    cccSrchRslts1.VarChar02 = (X.SYS.COMPANY == 1002 ? dsSearchResults.nVarChar02 : dsSearchResults.VarChar02);
+                    cccSrchRslts1.VarChar03 = dsSearchResults.nVarChar02;
+                    cccSrchRslts1.VarChar04 = (X.SYS.COMPANY == 1002 ? dsSearchResults.nVarChar04 : dsSearchResults.VarChar04);
+                    cccSrchRslts1.SmallInt01 = dsSearchResults.SmallInt01;
+                    cccSrchRslts1.Decimal01 = dsSearchResults.Decimal01;
+                    cccSrchRslts1.Decimal02 = dsSearchResults.Decimal02;
+                    cccSrchRslts1.Decimal03 = dsSearchResults.Decimal03+dsSearchResults.Decimal03BF;
+                    cccSrchRslts1.Decimal04 = cccSrchRslts1.Decimal02*((100-dsSearchResults.Decimal03)/100);
+                    cccSrchRslts1.Decimal05 = vVatPrcnt;
+                    cccSrchRslts1.Decimal06 = cccSrchRslts1.Decimal04*(1+(vVatPrcnt/100));
+                    cccSrchRslts1.Decimal07 = dsSearchResults.Decimal07*(1+(vVatPrcnt/100));
+                    cccSrchRslts1.Decimal08 = dsSearchResults.Decimal08*(1+(vVatPrcnt/100));
+                }
+                vItemIDs.push(dsSearchResults.Integer02);
+                //vItemCodes.push([dsSearchResults.Integer02,dsSearchResults.VarChar01]);
+                dsSearchResults.NEXT;
+            }
+        }
+        catch(e){
+            X.WARNING(e.description);
+        }
+        finally{
+            //dsSearchResults.free;
+            cccSrchRslts2.FIRST;
+            cccSrchRslts2.ENABLECONTROLS;
+        }
+    }
+    else {
+        //X.WARNING("Δεν βρέθηκαν συναφείς κωδικοί για τα είδη!");
+    }
+    return vItemIDs;//[vItemIDs,vItemCodes];
+}
+
+function GetStockResults(fMtrls) {
+    var vOrderBy= X.SYS.COMPANY in {1000:1, 1001:1} ?" order by  BS.SmallInt02,BS.SmallInt03 " :"";
+    var vSQL = "	SELECT  "
+                        +"\n		BS.LoginCompany "
+                        +"\n		,BS.LoginCompanyName  "	
+                        +"\n		,BS.MTRL        "
+                        +"\n		,BS.SmallInt02  "
+                        +"\n		,BS.SmallInt03  "
+                        +"\n		,BS.VarChar02  "
+                        +"\n		,BS.VarChar03  "
+                        +"\n		,BS.Integer02  "
+                        +"\n		,BS.Decimal02  "
+                        +"\n		,BS.Decimal03  "
+                        +"\n		,BS.Decimal04  "
+                        +"\n		,BS.Decimal05  "
+                        +"\n		,BS.DateTime01 "
+                        +"\n	FROM "
+                        +"\n		cccDvMtrlStockPerBranch BS  "
+                        +"\n	WHERE "
+                        +"\n		BS.LoginCompany="+X.SYS.COMPANY
+                        +"\n		AND BS.MTRL IN ("+fMtrls+")"
+                        +vOrderBy;
+            
+    var dsSearchResults = X.GETSQLDATASET(vSQL, null);
+    if (dsSearchResults.RECORDCOUNT > 0) {
+        try {
+            dsSearchResults.FIRST;
+            cccSrchRslts3.DISABLECONTROLS;
+            cccSrchRslts3.FIRST;
+            while (!dsSearchResults.EOF()) {
+                cccSrchRslts3.APPEND;
+                cccSrchRslts3.Integer02 = dsSearchResults.Integer02;
+                cccSrchRslts3.SmallInt02 = dsSearchResults.SmallInt02;
+                cccSrchRslts3.SmallInt03 = dsSearchResults.SmallInt03;
+                cccSrchRslts3.VarChar02 = dsSearchResults.VarChar02;
+                cccSrchRslts3.VarChar03 = dsSearchResults.VarChar03;
+                cccSrchRslts3.Decimal01 = dsSearchResults.Decimal02-dsSearchResults.Decimal03;
+                cccSrchRslts3.Decimal02 = dsSearchResults.Decimal02;
+                cccSrchRslts3.Decimal03 = dsSearchResults.Decimal03;
+                cccSrchRslts3.Decimal04 = dsSearchResults.Decimal04;
+                cccSrchRslts3.Decimal05 = dsSearchResults.Decimal05;
+                cccSrchRslts3.DateTime01 = dsSearchResults.DateTime01;
+                dsSearchResults.NEXT;
+            }
+        }
+        catch(e){
+            X.WARNING(e.description);
+        }
+        finally{
+            //dsSearchResults.free;
+            cccSrchRslts3.FIRST;
+            cccSrchRslts3.ENABLECONTROLS;
+        }
+    }
+    else {
+        //X.WARNING("Δεν βρέθηκε απόθεμα για τα είδη!");
+    }
+}
+
+function GetApplicationResults(fItemIDs/*,fItemCodes*/) {
+    var vSQL = "SELECT M.MTRL AS Integer02 "
+            +"	 ,U.UTBL01 AS SmallInt01 "
+            +"	 ,SI.CODE AS VarChar01 "
+            +"	 ,U.CODE AS VarChar02 "
+            +"	 ,ISNULL((SELECT STL.SOVALUE "
+            +" 		FROM SOTRANSL AS STL "
+            +" 		WHERE STL.TABLEID=46 "
+            +" 		AND STL.FIELDID = 1 "
+            +" 		AND STL.SOLANG = "+(SALDOC.COMPANY == 1002 ? "'SR' " : "'EN' ")
+            +" 		AND STL.KEY1 = "+SALDOC.COMPANY
+            +" 		AND STL.KEY2 = 51 "
+            +" 		AND STL.KEY3 = U.UTBL01),U.NAME) AS VarChar03 "
+            +" FROM cccSimilarItems AS SI "
+            +" INNER JOIN MTRL AS M "
+            +" ON M.MTRL = SI.MTRL "
+            +" LEFT OUTER JOIN UTBL01 AS U "
+            +" ON U.COMPANY = M.COMPANY "
+            +" AND U.SODTYPE = M.SODTYPE "
+            +" AND U.UTBL01 = SI.UTBL01 "
+            +" WHERE SI.MTRL IN ("+fItemIDs.join(",")+")"
+            +" AND SI.ISACTIVE = 1 "
+            +" GROUP BY M.MTRL,SI.CODE,U.UTBL01,U.CODE,U.NAME "
+            +" ORDER BY M.MTRL,SI.CODE ";
+    var dsSearchResults = X.GETSQLDATASET(vSQL, null);
+    if (dsSearchResults.RECORDCOUNT > 0) {
+        try {
+            cccSrchRslts4.DISABLECONTROLS;
+            cccSrchRslts4.FIRST;
+            //for (var i=0; i < fItemCodes.length; i++) {
+                dsSearchResults.FIRST;
+                while (!dsSearchResults.EOF()) {
+                    //if (fItemCodes[i][0] == dsSearchResults.Integer02) {
+                        cccSrchRslts4.APPEND;
+                        cccSrchRslts4.Integer02 = dsSearchResults.Integer02;
+                        cccSrchRslts4.SmallInt01 = dsSearchResults.SmallInt01;
+                        //cccSrchRslts4.VarChar01 = fItemCodes[i][1];
+                        cccSrchRslts4.VarChar01 = dsSearchResults.VarChar01;
+                        cccSrchRslts4.VarChar02 = dsSearchResults.VarChar02;
+                        cccSrchRslts4.VarChar03 = dsSearchResults.VarChar03;
+                        //cccSrchRslts4.OrderByValue = ((fItemCodes[i][1] == dsSearchResults.VarChar01) ? -1 : 1);
+                        //cccSrchRslts4.OrderByValue = (cccSrchRslts1.LOCATE("Integer01",dsSearchResults.Integer02) ? -1 : 1);
+                    //}
+                    dsSearchResults.NEXT;
+                }
+            //}
+        }
+        catch(e){
+            X.WARNING(e.description);
+        }
+        finally{
+            //dsSearchResults.free;
+            cccSrchRslts4.FIRST;
+            cccSrchRslts4.ENABLECONTROLS;
+        }
+    }
+    else {
+        //X.WARNING("Δεν βρέθηκαν εφαρμογές για τα είδη!");
+    }
+}
+
+function GetSrbPrice() //========== Nivelacija Σερβίας ==========//
+{
+    if(X.SYS.COMPANY == 1002)
+    {
+        if(ITELINES.MTRL >= 1)
+        {
+            vpr = X.GETSQLDATASET('SELECT PRICER FROM MTRLCMP WHERE COMPANY=1002 AND MTRL='+ITELINES.MTRL,'');
+            ITELINES.CCCORPRICER = vpr.pricer;
+        }
+        else
+            ITELINES.CCCORPRICER = 0;
+    }	
+}
+
+function SrbRetCus(vConv) //========== Πελάτης Λιανικής Σερβίας ==========//
+{
+    if((X.SYS.COMPANY == 1002) && ((SALDOC.TFPRMS == 131) || (SALDOC.TFPRMS == 181)))
+    {
+        if(X.SYS.BRANCH == 1000)
+        {
+            SALDOC.CCCORTRDRR = 52063;
+            
+            if((vConv == null) || (vConv == 0))
+                SALDOC.TRDR = 52063;
+        }	
+        else if(X.SYS.BRANCH == 1001)
+        {
+            SALDOC.CCCORTRDRR = 52064;
+            
+            if((vConv == null) || (vConv == 0))
+                SALDOC.TRDR = 52064;
+        }	
+        else if(X.SYS.BRANCH == 1002)
+        {
+            SALDOC.CCCORTRDRR = 52065;
+            
+            if((vConv == null) || (vConv == 0))
+                SALDOC.TRDR = 52065;
+        }	
+    }		
+}
+
+function StockAlert() //=========== Custom Έλεγχος υπολπόιπου Σερβίας =============//
+{
+    if(X.SYS.COMPANY == 1002)
+    {
+        if(((SALDOC.TFPRMS == 101) || (SALDOC.TFPRMS == 103) || (SALDOC.TFPRMS == 131) || (SALDOC.FPRMS == 7021) || (SALDOC.FPRMS == 7020) || (SALDOC.FPRMS == 7022) || (SALDOC.FPRMS == 7037)) && (SALDOC.FPRMS < 9000))
+        {
+            if(SALDOC.BRANCH == 1000)
+            {
+                rq = 'and whouse in (1000, 1001)';
+                rq2 = 'and Z1.whouse in (1000, 1001)';
+            }	
+            else if (SALDOC.BRANCH == 1001)
+            {
+                rq = 'and whouse in (1006, 1007)';
+                rq2 = 'and Z1.whouse in (1006, 1007)';
+            }	
+            else if (SALDOC.BRANCH == 1002)
+            {
+                rq = 'and whouse in (1009, 1010)';
+                rq2 = 'and Z1.whouse in (1009, 1010)';
+            }	
+                
+            vqr=X.GETSQLDATASET('SELECT ISNULL(SUM(ISNULL(IMPQTY1,0) - ISNULL(EXPQTY1,0)),0) YPOL '
+                                +' FROM MTRBALSHEET WHERE COMPANY=1002 AND MTRL='+ITELINES.MTRL+' AND FISCPRD='+X.SYS.FISCPRD+' '
+                                +' '+rq+' ','');
+
+            vqd=X.GETSQLDATASET('SELECT isnull(SUM(ISNULL(Z1.QTY1,0)-ISNULL(Z1.QTY1COV,0)-ISNULL(Z1.QTY1CANC,0)),0) qtyres '
+                                +' FROM MTRLINES Z1, RESTMODE Z2 '                                     
+                                +' WHERE Z1.COMPANY IN (1002) AND Z1.MTRL = '+ITELINES.MTRL+' AND Z1.PENDING = 1 '                                              
+                                +' '+rq2+' '                                     
+                                +' AND Z2.COMPANY=1002 AND Z1.RESTMODE = Z2.RESTMODE AND Z2.RESTCATEG = 2','');
+
+                                //+' AND Z1.RESTMODE IN (21) AND Z2.COMPANY   = 1000 ' 
+                                //+' AND Z1.WHOUSE <> (-1000) AND Z1.WHOUSE IN (SELECT WHOUSE FROM WHOUSE WHERE CUSTOMSTYPE=0 AND COMPANY IN (1000)) '
+                                //+' where findoc='+SALDOC.FINDOC,'');
+
+            vsum = 0;
+            vsum = vqr.ypol - vqd.qtyres;
+            
+            if(ITELINES.QTY1 > vsum)	
+                X.EXCEPTION('Υπέρβαση Υπολοίπου. Το διαθέσιμο είναι: '+vsum+' ');
+        }
+    }
+}
+
+function ShowHide() //========== Προβολή Πελάτης Λιανικής Σερβίας ==========//
+{
+    if(SALDOC.COMPANY == 1002)
+    {
+        if((SALDOC.TFPRMS == 131) || (SALDOC.TFPRMS == 181))
+        {
+            X.SETPROPERTY("PANEL","Panel13","VISIBLE","FALSE");
+            X.SETPROPERTY("PANEL","RetailSrb","VISIBLE","TRUE");
+        }
+        else
+        {
+            X.SETPROPERTY("PANEL","RetailSrb","VISIBLE","FALSE");
+            X.SETPROPERTY("PANEL","Panel13","VISIBLE","TRUE");
+        }
+    }
+    else
+    {
+        X.SETPROPERTY("PANEL","RetailSrb","VISIBLE","FALSE");
+        X.SETPROPERTY("PANEL","Panel13","VISIBLE","TRUE");
+    }
+}
+
+function CustomSumItelines() {
+    if (SALDOC.ISNULL("CCCWEIGHT") == 1) {
+        try {	
+            var Vsum=0;
+            ITELINES.FIRST;
+            ITELINES.DISABLECONTROLS;
+            while (!ITELINES.EOF()) {
+                Vsum = Vsum+(ITELINES.QTY1*ITELINES.CCCGWEIGHT);
+                ITELINES.NEXT;
+            }
+            SALDOC.CCCWEIGHT = Vsum;
+        }
+        catch(e){
+            X.WARNING(e.description);
+        }
+        finally{
+            ITELINES.FIRST;
+            ITELINES.ENABLECONTROLS;
+        }
+    }
+    if (SALDOC.ISNULL("CCCVOLUME") == 1) {
+        SALDOC.CCCVOLUME = X.FILTERSUM("ITELINES.VOLUME","");
+    }
+    if (SALDOC.ISNULL("cccNetWeig") == 1) {
+        SALDOC.cccNetWeig = X.FILTERSUM("ITELINES.WEIGHT","");
+    }
+}
+
+function CreateLostSales(vSeries,vItem,vQty1,vValue,vNoAsk) {
+    var ans;
+if(vNoAsk != 1){
+        if(X.SYS.USERLANG == "EL"){
+            ans = X.ASKYESNO ("Χαμένη πώληση", "Να δημιουργηθεί χαμένη πώληση;");
+        }
+        else if (X.SYS.USERLANG == "EN"){
+            ans = X.ASKYESNO ("Lost sale", "Create a lost sale;");
+        }
+        else if (X.SYS.USERLANG == "SR"){
+            ans = X.ASKYESNO ("Izgubljena prodaja", "Kreiraj izgubljenu prodaju;");
+        }
+    }
+    else {ans=true;}
+    if(!ans)
+        return;
+
+    var myObj = X.CreateObj("SOTASK");
+    try {
+        myObj.DBINSERT;
+        var TblFin = myObj.FindTable("SOACTION");
+        TblFin.Edit;
+        TblFin.SERIES = vSeries;
+        TblFin.TRDR = SALDOC.TRDR;
+        TblLns = myObj.FindTable("ACTLINES");
+        TblLns.Append;
+        TblLns.SODTYPE = 51;
+        TblLns.MTRL = vItem;
+        TblLns.QTY1 = vQty1;
+        TblLns.VALUE = vValue;
+        TblLns.Post;
+        myObj.DBPOST;
+    //	X.WARNING("Δημιουργήθηκε χαμένη πώληση");
+        if(vNoAsk != 1){
+            X.WARNING((X.SYS.USERLANG == "EL" ? "Δημιουργήθηκε χαμένη πώληση" :
+                            (X.SYS.USERLANG == "EN" ? "A lost sale was created" :
+                                (X.SYS.USERLANG == "SR" ? "Izgubljena prodaja je kreirana" : "No Supported Language"))));
+        }
+    }
+    catch (e) {
+        X.WARNING("Error: " + e.description);
+    }
+}
+
+function GetRoutingCarrier() {
+    try {
+        var vSQL = "", dsRCData;
+        if (SALDOC.TRDBRANCH > 0) {
+            vSQL = "DECLARE @Company SmallInt, @CusBranch Int "
+                +"\nSET @Company = "+SALDOC.COMPANY
+                +"\nSET @CusBranch = "+SALDOC.TRDBRANCH
+                +"\n "
+                +"\nSELECT TB.SOCARRIER "
+                +"\n	,TB.ROUTING "
+                +"\nFROM TRDBRANCH AS TB "
+                +"\nWHERE TB.COMPANY = @Company "
+                +"\nAND TB.TRDBRANCH = @CusBranch "
+                +"\nUNION ALL "
+                +"\nSELECT TBC.CCCCARRIER AS SOCARRIER "
+                +"\n	,TBC.CCCROUTING AS ROUTING "
+                +"\nFROM TRDBRANCHCMP AS TBC "
+                +"\nWHERE TBC.COMPANY = @Company "
+                +"\nAND TBC.TRDBRANCH = @CusBranch ";
+            var dsRCData = X.GETSQLDATASET(vSQL, null);
+            if (dsRCData.RECORDCOUNT > 0) {
+            
+                if(!dsRCData.ISNULL("ROUTING")){
+                    MTRDOC.ROUTING = dsRCData.ROUTING;
+                }
+                if(!dsRCData.ISNULL("SOCARRIER")){
+                    MTRDOC.SOCARRIER = dsRCData.SOCARRIER;
+                }
+            }
+        }
+        else if (SALDOC.TRDR > 0) {
+            vSQL = "DECLARE @Company SmallInt, @Customer Int "
+                +"\nSET @Company = "+SALDOC.COMPANY
+                +"\nSET @Customer = "+SALDOC.TRDR
+                +"\n "
+                +"\nSELECT T.SOCARRIER "
+                +"\n	,T.ROUTING "
+                +"\nFROM TRDR AS T "
+                +"\nWHERE T.COMPANY = @Company "
+                +"\nAND T.TRDR = @Customer "
+                +"\nUNION ALL "
+                +"\nSELECT TC.CCCCARRIER AS SOCARRIER "
+                +"\n	,TC.CCCROUTING AS ROUTING "
+                +"\nFROM TRDRCMP AS TC "
+                +"\nWHERE TC.COMPANY = @Company "
+                +"\nAND TC.TRDR = @Customer ";
+            var dsRCData = X.GETSQLDATASET(vSQL, null);
+            if (dsRCData.RECORDCOUNT > 0) {
+            
+                if(!dsRCData.ISNULL("ROUTING")){
+                    MTRDOC.ROUTING = dsRCData.ROUTING;
+                }
+                if(!dsRCData.ISNULL("SOCARRIER")){
+                    MTRDOC.SOCARRIER = dsRCData.SOCARRIER;
+                }
+            }
+        }
+        else {
+            MTRDOC.ROUTING = null;
+            MTRDOC.SOCARRIER = null;
+        }
+    }
+    catch (e) {
+        X.WARNING("Error: " + e.description);
+    }
+}
+
+function OrdersOffers() {
+    var OfferSeries, vOrderSeries = X.CCCTRDSERIES.LOOKUP("COMPANY;BRANCH;TRDCATEGORY", SALDOC.COMPANY, SALDOC.BRANCH, SALDOC.X_TRDCATEGORY, "SERIES");
+    switch (parseInt(SALDOC.BRANCH)) {
+        case 1000:
+            OfferSeries = 1003;
+            break;
+        case 1001:
+            OfferSeries = 2003;
+            break;
+        case 1002:
+            OfferSeries = 3003;
+            break;
+    }
+
+    if ((vOrderSeries>0) && (OfferSeries>0)){
+        SALDOC.SERIES = (SALDOC.SERIES == vOrderSeries ? OfferSeries : vOrderSeries);
+        CalcWeight2();
+    }
+    else {
+    //	X.WARNING("Δεν βρέθηκε σειρά παραγγελίας/προσφοράς για τον πελάτη.");
+            X.WARNING((X.SYS.USERLANG == "EL" ? "Δεν βρέθηκε σειρά παραγγελίας/προσφοράς για τον πελάτη." :
+                            (X.SYS.USERLANG == "EN" ? "No order/offer row was found for the customer." :
+                                (X.SYS.USERLANG == "SR" ? "Nema porudžbine/Pronađena je ponuda za kupca." : "No Supported Language"))));
+    }
+}
+
+function CalcWeight2_Old() {
+    if (ITELINES.RECORDCOUNT > 0) {
+        var recNo;
+        recNo = ITELINES.RECNO;
+        try {	
+            var Vsum=0;
+            ITELINES.FIRST;
+            ITELINES.DISABLECONTROLS;
+            while (!ITELINES.EOF()) {
+                Vsum = Vsum+(ITELINES.QTY1*ITELINES.CCCGWEIGHT);
+                ITELINES.NEXT;
+            }
+            SALDOC.CCCWEIGHT2 = Vsum;
+        }
+        catch(e){
+            X.WARNING(e.description);
+        }
+        finally{
+            ITELINES.FIRST;
+            ITELINES.ENABLECONTROLS;
+            ITELINES.RECNO = recNo + 1;
+        }
+    }
+}
+function CalcWeight2() {
+        try {
+            SALDOC.CCCWEIGHT2 =X.FILTERSUM('ITELINES.CCCGWEIGHTSUM','1=1');
+        }
+        catch(e){
+            X.WARNING(e.description);
+        }
+}
+
+function CalcWeight2Line() {
+//debugger;
+    X.FOCUSFIELD('ITELINES.PRICE');
+    ITELINES.CCCGWEIGHTSUM = (ITELINES.QTY1*ITELINES.CCCGWEIGHT);
+}
+
+
+function GetLangString(vStr1,vStr2,vStr3) {
+    var result;
+    if (X.SYS.USERLANG == "EL"){
+        result =  vStr1;
+    }
+    else if (X.SYS.USERLANG == "EN"){
+        result = vStr2;
+    }
+    else if (X.SYS.USERLANG == "SR"){
+        result = vStr3;
+    }
+    else {
+        result = vStr1;
+    }
+    return result;
+}
+
+function FixRoutingCarrier() {
+    var vSQL = "", ds;
+    if (MTRDOC.ISNULL("ROUTING") == 1){
+        vSQL = "SELECT ISNULL(TB.ROUTING,T.ROUTING) AS ROUTING1000"
+            +"\n	,ISNULL(TBC.CCCROUTING,TC.CCCROUTING) AS ROUTING1001"
+            +"\nFROM TRDR AS T"
+            +"\nLEFT OUTER JOIN TRDRCMP AS TC"
+            +"\nON TC.TRDR = T.TRDR"
+            +"\nAND TC.COMPANY = "+SALDOC.COMPANY
+            +"\nLEFT OUTER JOIN TRDBRANCH AS TB"
+            +"\nON TB.TRDR = T.TRDR"
+            +"\nAND TB.TRDBRANCH = "+((SALDOC.TRDBRANCH > 0) ? SALDOC.TRDBRANCH : "NULL")
+            +"\nLEFT OUTER JOIN TRDBRANCHCMP AS TBC"
+            +"\nON TBC.TRDBRANCH = TB.TRDBRANCH"
+            +"\nAND TBC.COMPANY = "+SALDOC.COMPANY
+            +"\nWHERE T.TRDR = "+SALDOC.TRDR;
+        ds = X.GETSQLDATASET(vSQL, null);
+        if ((SALDOC.COMPANY == X.SYS.MAINCOMPANY ? ds.ROUTING1000 : ds.ROUTING1001) > 0) {
+            MTRDOC.ROUTING = (SALDOC.COMPANY == X.SYS.MAINCOMPANY ? ds.ROUTING1000 : ds.ROUTING1001);
+        }
+    }
+    if (MTRDOC.ISNULL("SOCARRIER") == 1) {
+        vSQL = "SELECT ISNULL(TB.SOCARRIER,T.SOCARRIER) AS SOCARRIER1000"
+            +"\n	,ISNULL(TBC.CCCCARRIER,TC.CCCCARRIER) AS SOCARRIER1001"
+            +"\nFROM TRDR AS T"
+            +"\nLEFT OUTER JOIN TRDRCMP AS TC"
+            +"\nON TC.TRDR = T.TRDR"
+            +"\nAND TC.COMPANY = "+SALDOC.COMPANY
+            +"\nLEFT OUTER JOIN TRDBRANCH AS TB"
+            +"\nON TB.TRDR = T.TRDR"
+            +"\nAND TB.TRDBRANCH = "+((SALDOC.TRDBRANCH > 0) ? SALDOC.TRDBRANCH : "NULL")
+            +"\nLEFT OUTER JOIN TRDBRANCHCMP AS TBC"
+            +"\nON TBC.TRDBRANCH = TB.TRDBRANCH"
+            +"\nAND TBC.COMPANY = "+SALDOC.COMPANY
+            +"\nWHERE T.TRDR = "+SALDOC.TRDR;
+        ds = X.GETSQLDATASET(vSQL, null);
+        if ((SALDOC.COMPANY == X.SYS.MAINCOMPANY ? ds.SOCARRIER1000 : ds.SOCARRIER1001) > 0) {
+            MTRDOC.SOCARRIER = (SALDOC.COMPANY == X.SYS.MAINCOMPANY ? ds.SOCARRIER1000 : ds.SOCARRIER1001);
+        }
+    }
+}
+
+function ReCalculatePrcRule() {
+//debugger;
+    if ((SALDOC.TRDR > 0) && (SALDOC.SERIES > 0) && (ITELINES.RECORDCOUNT > 0)) {
+        var vError = 0;
+        var vExcluded = "," + X.COMPANY.LOOKUP("COMPANY", SALDOC.COMPANY, "cccPrcRExclude") + ",";
+        var vFprms = "," + SALDOC.FPRMS + ",";
+        if ((!(vExcluded.indexOf(vFprms)>-1)) && (ITELINES.RECORDCOUNT > 0)) {
+            InsLog("ReCalculatePrcRule",SALDOC.COMPANY,SALDOC.SERIES,ITELINES.MTRL,SALDOC.TRDR,SALDOC.TRNDATE,ITELINES.cccSimItemSrch,vControler,"ReCalculatePrcRule",0,X.SYS.USER,SALDOC.VARCHAR01,ITELINES.PRICE,ITELINES.DISC1PRC,null,GetNewID(),ITELINES.MTRLINES);
+            vControler = 1;
+            vRecalculate = 1;
+            ITELINES.FIRST;
+            ITELINES.DISABLECONTROLS;
+            while(!ITELINES.EOF()) {
+                var dsPrcDt = GetItemPrice(ITELINES.MTRL);
+                if (dsPrcDt.length>0) {
+                    try {
+                        ITELINES.EDIT;
+                        ITELINES.PRICE = dsPrcDt[0];
+                        ITELINES.DISC1PRC = dsPrcDt[1];
+                        ITELINES.POST;
+                    }
+                    catch(e) {
+                        InsLog("ReCalculatePrcRule Nested ",SALDOC.COMPANY,SALDOC.SERIES,ITELINES.MTRL,SALDOC.TRDR,SALDOC.TRNDATE,ITELINES.cccSimItemSrch,vControler,"Error ReCalculatePrcRule"+e.message,1,X.SYS.USER,SALDOC.VARCHAR01,ITELINES.PRICE,ITELINES.DISC1PRC,null,GetNewID(),ITELINES.MTRLINES);
+            
+                        if( SALDOC.cccNoAlert != 1 && SALDOC.ISNULL('VARCHAR01')==1 ){
+                            X.WARNING("Δεν υπολογίστηκε η τιμολ. πολιτική του είδους \n"+ITELINES.cccSimItemSrch+":"+ITELINES.X_NAME+"\nκαι θα διαγραφεί η γραμμή!\nΘα χρειαστεί να την ξαναπεράσετε.");
+                            ITELINES.DELETE;
+                            vError = 1;
+                        }
+                    }
+                    finally {
+                    }
+                }
+                if (vError == 1) {
+                    vError = 0;
+                }
+                else {
+                    ITELINES.NEXT;
+                }
+            }
+            ITELINES.ENABLECONTROLS;
+            ITELINES.FIRST;
+            vControler = 0;
+            vRecalculate = 0;
+        }
+    }
+}
+
+function CheckIfConved() {
+    var vSQL = "";
+    try {
+        vControler = 1;
+        ITELINES.FIRST;
+        ITELINES.DISABLECONTROLS;
+        while(!ITELINES.EOF()) {
+            if ((ITELINES.FINDOCS > 0) && (ITELINES.MTRLINESS > 0)) {
+                vSQL = vSQL
+                    +"\nSELECT M.CODE AS ITEMCODE"
+                    +"\nFROM FINDOC AS FD"
+                    +"\nINNER JOIN MTRLINES AS FDL"
+                    +"\nON FDL.FINDOC = FD.FINDOC"
+                    +"\nINNER JOIN MTRL AS M"
+                    +"\nON M.MTRL = FDL.MTRL"
+                    +"\nWHERE FD.SOSOURCE = 1351"
+                    +"\nAND FD.TFPRMS = 151"
+                    +"\nAND FD.APPRV = 1"
+                    +"\nAND FD.ISCANCEL = 0"
+                    +"\nAND FDL.FINDOCS = "+ITELINES.FINDOCS
+                    +"\nAND FDL.MTRLINESS = "+ITELINES.MTRLINESS
+                    +"\nGROUP BY M.CODE"
+                    +"\nHAVING (SELECT ORDL.QTY1 FROM MTRLINES AS ORDL WHERE ORDL.FINDOC = "+ITELINES.FINDOCS+" AND ORDL.MTRLINES = "+ITELINES.MTRLINESS+")"
+                    +" - SUM(FDL.QTY1) < "+ITELINES.QTY1
+                    +"\nUNION ALL"
+            }
+            ITELINES.NEXT;
+        }
+    }
+    //catch(e) {
+    //	X.WARNING(e.description);
+    //}
+    finally {
+        ITELINES.ENABLECONTROLS;
+        ITELINES.FIRST;
+        vControler = 0;
+    }
+    if (vSQL.length-9 > 0) {
+        var dsConved = X.GETSQLDATASET(vSQL.substr(0,vSQL.length-9), null);
+        if (dsConved.RECORDCOUNT > 0) {
+            X.EXCEPTION("Έχει ήδη κοπεί πιστωτικό για τα επιλεγμένα είδη.");
+        }
+    }
+}
+
+function AllQty1To1() {
+    try {
+        vControler = 1;
+        ITELINES.FIRST;
+        ITELINES.DISABLECONTROLS;
+        while(!ITELINES.EOF()) {
+            ITELINES.QTY1 = 1;
+            ITELINES.NEXT;
+        }
+    }
+    catch(e) {
+        X.WARNING(e.description);
+    }
+    finally {
+        ITELINES.ENABLECONTROLS;
+        ITELINES.FIRST;
+        vControler = 0;
+    }
+}
+
+function FillSimItemSrch(cSimCode){
+    SimItemSrch
+}
+
+function FindItelinesDsMTRGROUP(AllLines){
+//debugger;
+    if(AllLines==1){		
+        ITELINES.FIRST;
+        if(ITELINES.RECORDCOUNT>0){
+            var i=0;
+            var Mtrls=[];
+            ITELINES.DISABLECONTROLS();
+            try
+            {
+                try{
+                    while(!ITELINES.EOF()){
+                        Mtrls[i]=ITELINES.MTRL;
+                        i++;
+                        ITELINES.NEXT;	
+                    }
+                    var strMtrls=Mtrls.join(',')
+                    var DsMtrl=findMtrgroup(strMtrls);
+                    UpdItelinesDisc1Prc(AllLines,DsMtrl);
+                }
+                catch(e){
+                    X.WARNING("Error:"+e.message);
+                }
+            }
+            finally{				
+                ITELINES.ENABLECONTROLS();
+            }
+        }
+    }
+    else{
+        ITELINES.cccDisc1Prc=null;
+        if(ITELINES.MTRL>0){
+        var DsMtrl=findMtrgroup(ITELINES.MTRL);
+        UpdItelinesDisc1Prc(AllLines,DsMtrl);
+        }
+    }
+}
+
+function findMtrgroup(strMtrls){
+    var str=  " SELECT "
+        +"\n"+"		DISTINCT ML.MTRL, isnull(MG.CCCDISC1PRC,0) AS CCCDISC1PRC, isnull(MG.cccDisc1PrcFlg,0) AS cccDisc1PrcFlg "
+        +"\n"+"	FROM "
+        +"\n"+"		MTRL ML "
+        +"\n"+"		LEFT JOIN MTRGROUP MG ON MG.MTRGROUP=ML.MTRGROUP AND MG.COMPANY=ML.COMPANY AND MG.SODTYPE=ML.SODTYPE  "
+        +"\n"+"	WHERE  ML.MTRL IN ("+strMtrls+")";
+    var DsMtrl=X.GETSQLDATASET(str,null);
+    return DsMtrl;
+}
+
+function UpdItelinesDisc1Prc(AllLines,DsMtrl){
+    if(AllLines==1){
+        ITELINES.FIRST;
+        if(ITELINES.RECORDCOUNT>0){
+            ITELINES.DISABLECONTROLS();
+            try
+            {
+                try{
+                    while(!ITELINES.EOF()){
+                        CheckDisc1Prc(DsMtrl);
+                        ITELINES.NEXT;	
+                    }
+                }
+                catch(e){
+                    X.WARNING("Error:"+e.message);
+                }
+            }
+            finally{
+                ITELINES.ENABLECONTROLS();
+            }
+        }
+    }
+    else{
+        CheckDisc1Prc(DsMtrl)
+    }
+}
+
+function CheckDisc1Prc(DsMtrl){
+    DsMtrl.FILTERED = 0;
+    DsMtrl.FILTER="MTRL="+ITELINES.MTRL;
+    DsMtrl.FILTERED =1;
+    //Mtrgroup Can Change DiscPrc
+    if((DsMtrl.cccDisc1PrcFlg>0) && (SALDOC.ISNULL("cccDisc1Prc") == 0)) {
+        if(SALDOC.cccDisc1Prc<=DsMtrl.CCCDISC1PRC){
+            ITELINES.DISC1PRC=SALDOC.cccDisc1Prc;
+            ITELINES.cccDisc1Prc=SALDOC.cccDisc1Prc;
+        }
+        else{
+            ITELINES.DISC1PRC=DsMtrl.CCCDISC1PRC;
+            ITELINES.cccDisc1Prc=DsMtrl.CCCDISC1PRC;
+        }
+    }
+}
+
+function VisiblecccDisc1Prc(){
+    /*Pelates Lianikis*/
+    if(SALDOC.X_TRDCATEGORY == vCustCateg)
+        X.SETPROPERTY('FIELD','SALDOC.cccDisc1Prc','VISIBLE','TRUE');
+        else
+            X.SETPROPERTY('FIELD','SALDOC.cccDisc1Prc','VISIBLE','FALSE');
+}
+
+function ClearcccDisc1Prc(){
+    SALDOC.cccDisc1Prc = null;
+}
+
+function SetColors() {
+    X.FIELDCOLOR('SALDOC.SUMAMNT', Colors.BlueLight);
+}
+
+function PaymentEditorFilter(){   
+    //Ομαδα Δεν είναι 2.Διοίκηση και ο Χρηστης Δεν ειναι Administrator
+    if( (X.SYS.GROUPS!=2) && (X.SYS.ISADMIN!=1) ) {
+        var paym;
+        paym = 0;
+        if(SALDOC.X_BPAYMENT >0){
+            paym = SALDOC.X_BPAYMENT;
+        }
+        else if (SALDOC.X_PAYMENT >0){
+            paym = SALDOC.X_PAYMENT;
+        }
+        X.SETFIELDEDITOR("SALDOC.PAYMENT", "PAYMENT(F[SODTYPE=13],W[PAYMENT = "+paym+" OR PAYMENT = 30 OR PAYMENT = 62 OR PAYMENT = 63])");
+    }
+    else{
+        X.SETFIELDEDITOR("SALDOC.PAYMENT", "PAYMENT(F[SODTYPE=13])");
+    }
+}
+
+function PaymentEditorValue(){	
+    PaymentEditorFilter();
+    var paym;
+    paym = 0;
+    if(SALDOC.X_BPAYMENT >0){
+        paym = SALDOC.X_BPAYMENT;
+    }
+    else if (SALDOC.X_PAYMENT >0){
+        paym = SALDOC.X_PAYMENT;
+    }
+    SALDOC.PAYMENT = paym;		
+}
+
+function ChangeItelinesGridMenus() {
+//===== Alter GRIDMENU Menu ======//
+//Ομαδα Δεν είναι 2.Διοίκηση και ο Χρηστης Δεν ειναι Administrator
+    if( (X.SYS.GROUPS!=2) && (X.SYS.ISADMIN!=1) ) {
+        //===== Alter Items Grid Menu ======//
+        var vGridMenu = X.EXEC('CODE:ModuleIntf.FindXStrings', X.MODULE, 'GRIDMENU');
+        X.EXEC('CODE:PiLib.TStringsSetItem', vGridMenu, 0, '-=-'); //Serial Number, Alters StringList value  
+        X.EXEC('CODE:PiLib.TStringsSetItem', vGridMenu, 3, '-=-'); //Στοιχεία κόστους, Alters StringList value  
+        X.EXEC('CODE:SysRequest.RefreshPopupMenu', X.MODULE, 'GRIDMENU', 1);	
+    }	
+}
+
+function LockFindocFields(){
+    if( (X.SYS.ISADMIN!=1) && (!(X.SYS.USER in vExcludedUsers)) && (X.SYS.GROUPS!=2) ){
+        X.SETPROPERTY('FIELD','SALDOC.DISC1PRC','READONLY',1);
+        X.SETPROPERTY('FIELD','SALDOC.DISC1VAL','READONLY',1);
+        X.SETPROPERTY('FIELD','SALDOC.DISC2VAL','READONLY',1);
+    }
+}
+
+function ChangeRelJob(){
+//debugger;
+    var Message="";
+    var vRelJobMenu = X.EXEC('CODE:ModuleIntf.FindXStrings', X.MODULE, 'RELJOBS');
+
+    tStringListCount = X.EXEC('CODE:PiLib.TStringsCount', vRelJobMenu); //Get ListCount
+    for(i=0;i<tStringListCount;i++)
+    {
+        Message+= X.EXEC('CODE:PiLib.TStringsGetItem', vRelJobMenu,i)+"\n"; //Get Current Item (e.g 1=Item1)
+    }
+
+    if(Message.length>0){
+        //X.WARNING("Message:"+Message);
+    }
+}
+
+function fixValueInsert(iValue,iType) {
+//debugger;
+//typeof iValue != "undefined")
+    if(iValue != undefined ){
+        if(iType=="STRING"){
+            if( iValue.length>0 ){
+                iValue = String(iValue);
+                iValue = iValue.replace(/\'/g, '');
+                iValue = iValue.replace(/\"/g, "");
+                iValue = iValue.replace(/^\s+|\s+$/gm,"");
+                iValue = iValue.replace(new RegExp(":", 'g'), "' + CHAR(58) + '");
+                iValue = iValue.replace(new RegExp("@", 'g'), "' + CHAR(64) + '");
+                //iValue = iValue.replace(new RegExp("$", 'g'), "' + CHAR(36) + '");
+                iValue = iValue.replace(new RegExp("#", 'g'), "' + CHAR(35) + '");
+                iValue = iValue.replace(new RegExp("&", 'g'), "' + CHAR(38) + '");
+                iValue = "'"+iValue+"'";
+            }
+            else{
+                iValue = "null";
+            }
+        }
+        else if(iType=="DATE"){
+            iValue = "'"+X.FORMATDATE('YYYY-MM-DD',iValue)+"'"
+        }
+        else if(iType=="INT"){
+            iValue = iValue;
+        }
+        else if(iType=="FLOAT"){
+            iValue = iValue;
+        }
+    }
+    else{
+        iValue = "null"
+    }
+    return iValue;
+}
+
+function InsLog(JobName,COMPANY,SERIES,MTRL,TRDR,TRNDATE,cccSimItemSrch,vControler,Message,IsError,InsUser,VARCHAR01,PRICE,DISC1PRC,DISC1PRCBF,FINDOC,MTRLINES){
+//InsDate
+    X.RUNSQL(" INSERT INTO ccctLog (JobName,COMPANIES,SERIES,MTRL,TRDR,TRNDATE,cccSimItemSrch,vControler,Message,IsError,InsUser,VARCHAR01,PRICE,DISC1PRC,DISC1PRCBF,FINDOC,MTRLINES) "
+            +"\n values ("+fixValueInsert(JobName,"STRING")
+                        +"\n ,"+fixValueInsert(COMPANY,"INT")
+                        +"\n ,"+fixValueInsert(SERIES,"INT")
+                        +"\n ,"+fixValueInsert(MTRL,"INT")
+                        +"\n ,"+fixValueInsert(TRDR,"INT")
+                        +"\n ,"+fixValueInsert(TRNDATE,"DATE")
+                        +"\n ,"+fixValueInsert(cccSimItemSrch,"STRING")
+                        +"\n ,"+fixValueInsert(vControler,"INT")
+                        +"\n ,"+fixValueInsert(Message,"STRING")
+                        +"\n ,"+fixValueInsert(IsError,"INT")
+                        +"\n ,"+fixValueInsert(InsUser,"INT")
+                        +"\n ,"+fixValueInsert(VARCHAR01,"STRING")
+                        +"\n ,"+fixValueInsert(PRICE,"FLOAT")
+                        +"\n ,"+fixValueInsert(DISC1PRC,"FLOAT")
+                        +"\n ,"+fixValueInsert(DISC1PRCBF,"FLOAT")
+                        +"\n ,"+fixValueInsert(FINDOC,"INT")
+                        +"\n ,"+fixValueInsert(MTRLINES,"INT")
+                        +"\n )"
+        ,null);
+}
